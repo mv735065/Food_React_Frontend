@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { orderAPI } from '../services/api';
 import { getSocket } from '../services/socket';
@@ -9,50 +9,9 @@ const OrderStatus = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const fetchOrderRef = useRef(null);
 
-  useEffect(() => {
-    fetchOrder();
-    
-    // Listen for real-time order updates
-    const socket = getSocket();
-    if (socket) {
-      const handleOrderUpdate = (data) => {
-        const orderId = data.orderId || data.id || data.order?.id || data.order?._id;
-        if (orderId === id) {
-          setOrder((prev) => {
-            if (!prev) return prev;
-            // Update order with new data (status, rider, etc.)
-            return { 
-              ...prev, 
-              status: data.status || data.order?.status || prev.status,
-              rider: data.rider || data.order?.rider || prev.rider,
-              riderId: data.riderId || data.order?.riderId || prev.riderId
-            };
-          });
-        }
-      };
-
-      const handleRiderAssigned = (data) => {
-        const orderId = data.orderId || data.id || data.order?.id || data.order?._id;
-        if (orderId === id) {
-          // Refresh order to get updated rider information
-          fetchOrder();
-        }
-      };
-
-      socket.on('order_update', handleOrderUpdate);
-      socket.on('order_assigned', handleRiderAssigned);
-      socket.on('rider_update', handleRiderAssigned);
-
-      return () => {
-        socket.off('order_update', handleOrderUpdate);
-        socket.off('order_assigned', handleRiderAssigned);
-        socket.off('rider_update', handleRiderAssigned);
-      };
-    }
-  }, [id]);
-
-  const fetchOrder = async () => {
+  const fetchOrder = useCallback(async () => {
     try {
       setLoading(true);
       const response = await orderAPI.getById(id);
@@ -71,7 +30,142 @@ const OrderStatus = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  // Update ref whenever fetchOrder changes
+  useEffect(() => {
+    fetchOrderRef.current = fetchOrder;
+  }, [fetchOrder]);
+
+  useEffect(() => {
+    fetchOrder();
+    
+    // Listen for real-time order updates
+    const socket = getSocket();
+    if (socket) {
+      console.log('Setting up socket listeners for order:', id);
+      
+      // Helper function to normalize order IDs for comparison
+      const normalizeOrderId = (orderId) => {
+        if (!orderId) return null;
+        const str = String(orderId).toLowerCase().trim();
+        // Return both full ID and last 6 characters for flexible matching
+        return {
+          full: str,
+          short: str.length > 6 ? str.slice(-6) : str
+        };
+      };
+
+      // Enhanced order update handler with better ID matching
+      const handleOrderUpdateEnhanced = (data) => {
+        console.log('Order update event received:', data);
+        const eventOrderId = data.orderId || data.id || data.order?.id || data.order?._id;
+        const currentOrderId = normalizeOrderId(id);
+        const eventOrderIdNorm = normalizeOrderId(eventOrderId);
+        
+        console.log('Comparing order IDs - Event:', eventOrderId, 'Current:', id);
+        console.log('Normalized - Event:', eventOrderIdNorm, 'Current:', currentOrderId);
+        
+        const matches = 
+          eventOrderIdNorm?.full === currentOrderId?.full ||
+          eventOrderIdNorm?.short === currentOrderId?.short ||
+          eventOrderId === id;
+        
+        if (matches) {
+          console.log('Order update matches current order, refreshing...');
+          if (fetchOrderRef.current) {
+            fetchOrderRef.current();
+          }
+        }
+      };
+
+      const handleRiderAssigned = (data) => {
+        console.log('Rider assigned event received:', data);
+        const orderId = data.orderId || data.id || data.order?.id || data.order?._id;
+        
+        if (orderId === id) {
+          console.log('Rider assigned matches current order, refreshing...');
+          // Refresh order to get updated rider information
+          if (fetchOrderRef.current) {
+            fetchOrderRef.current();
+          }
+        }
+      };
+
+      const handleStatusUpdate = (data) => {
+        console.log('Status update event received:', data);
+        const orderId = data.orderId || data.id || data.order?.id || data.order?._id;
+        
+        if (orderId === id) {
+          console.log('Status update matches current order, refreshing...');
+          if (fetchOrderRef.current) {
+            fetchOrderRef.current();
+          }
+        }
+      };
+
+      const handleNotification = (notification) => {
+        console.log('Notification event received:', notification);
+        // Check if notification is related to this order
+        const notificationOrderId = notification.orderId || notification.order?.id || notification.order?._id;
+        const message = (notification.message || '').toLowerCase();
+        
+        // Try to extract order ID from message if not directly available
+        // Match patterns like "Order #abc123" or "order abc123-def456-..."
+        const orderIdMatch = message.match(/order\s*#?([a-f0-9-]{6,})/i);
+        const extractedOrderId = orderIdMatch ? orderIdMatch[1] : null;
+        
+        // Normalize IDs for comparison
+        const currentOrderIdNorm = normalizeOrderId(id);
+        const notificationOrderIdNorm = normalizeOrderId(notificationOrderId);
+        const extractedOrderIdNorm = normalizeOrderId(extractedOrderId);
+        
+        // Check if this notification is for the current order
+        const isRelevant = 
+          notificationOrderIdNorm?.full === currentOrderIdNorm?.full ||
+          notificationOrderIdNorm?.short === currentOrderIdNorm?.short ||
+          notificationOrderId === id ||
+          extractedOrderIdNorm?.short === currentOrderIdNorm?.short ||
+          (extractedOrderId && id && id.includes(extractedOrderId)) ||
+          (extractedOrderId && id && extractedOrderId.includes(id.slice(-6)));
+        
+        if (isRelevant) {
+          console.log('Notification is relevant to current order, refreshing...');
+          console.log('Notification details:', {
+            notificationOrderId,
+            extractedOrderId,
+            currentOrderId: id,
+            message
+          });
+          if (fetchOrderRef.current) {
+            fetchOrderRef.current();
+          }
+        } else {
+          console.log('Notification not relevant - skipping refresh');
+        }
+      };
+
+      // Listen to all relevant socket events
+      socket.on('order_update', handleOrderUpdateEnhanced);
+      socket.on('order_assigned', handleRiderAssigned);
+      socket.on('rider_update', handleRiderAssigned);
+      socket.on('status_update', handleStatusUpdate);
+      socket.on('new_order_ready', handleOrderUpdateEnhanced);
+      socket.on('order_ready_for_pickup', handleOrderUpdateEnhanced);
+      socket.on('notification', handleNotification); // Listen to notification events
+
+      return () => {
+        console.log('Cleaning up socket listeners for order:', id);
+        socket.off('order_update', handleOrderUpdateEnhanced);
+        socket.off('order_assigned', handleRiderAssigned);
+        socket.off('rider_update', handleRiderAssigned);
+        socket.off('status_update', handleStatusUpdate);
+        socket.off('new_order_ready', handleOrderUpdateEnhanced);
+        socket.off('order_ready_for_pickup', handleOrderUpdateEnhanced);
+        socket.off('notification', handleNotification);
+      };
+    }
+  }, [id]);
 
   const getStatusSteps = () => {
     // Backend status enum: PENDING, ACCEPTED, PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
@@ -84,8 +178,19 @@ const OrderStatus = () => {
       { key: 'delivered', label: 'Delivered' },
     ];
 
-    // Normalize status to lowercase for comparison
-    const normalizedStatus = (order?.status || '').toLowerCase().replace(/-/g, '_');
+    if (!order?.status) {
+      return statuses.map((status) => ({
+        ...status,
+        completed: false,
+        current: false,
+      }));
+    }
+
+    // Normalize status to lowercase and handle various formats
+    const rawStatus = (order.status || '').toString();
+    const normalizedStatus = rawStatus.toLowerCase().replace(/-/g, '_').trim();
+    
+    console.log('Current order status:', rawStatus, 'Normalized:', normalizedStatus);
     
     // Find current status index - handle both old and new status formats
     const statusMapping = {
@@ -98,9 +203,11 @@ const OrderStatus = () => {
       'picked_up': 4, // Legacy status
       'out_for_delivery': 4,
       'delivered': 5,
+      'cancelled': -1, // Cancelled orders don't show progress
     };
     
     const currentStatusIndex = statusMapping[normalizedStatus] ?? -1;
+    console.log('Current status index:', currentStatusIndex);
     
     return statuses.map((status, index) => ({
       ...status,

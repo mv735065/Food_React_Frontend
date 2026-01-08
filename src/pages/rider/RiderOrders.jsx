@@ -59,6 +59,9 @@ const RiderOrders = () => {
     }
   }, []);
 
+  // Store fetchOrders in a ref so socket handlers always have the latest version
+  const fetchOrdersRef = useRef(null);
+
   // Memoize fetchOrders to avoid recreating it
   const fetchOrders = useCallback(async () => {
     try {
@@ -122,6 +125,11 @@ const RiderOrders = () => {
     }
   }, [checkAndShowReadyOrders]);
 
+  // Update ref whenever fetchOrders changes
+  useEffect(() => {
+    fetchOrdersRef.current = fetchOrders;
+  }, [fetchOrders]);
+
   useEffect(() => {
     fetchOrders();
 
@@ -135,7 +143,10 @@ const RiderOrders = () => {
         console.log('Order assigned event received:', data);
         const orderId = data.orderId || data.id || data.order?.id || data.order?._id;
         setToast({ message: `New order assigned: #${orderId ? orderId.slice(-6) : 'N/A'}`, type: 'info' });
-        fetchOrders();
+        // Use ref to get latest fetchOrders
+        if (fetchOrdersRef.current) {
+          fetchOrdersRef.current();
+        }
       };
 
       // Handle when a new order is ready for pickup (available for riders)
@@ -179,8 +190,10 @@ const RiderOrders = () => {
           }
         }
         
-        // Refresh orders list
-        fetchOrders();
+        // Refresh orders list using ref to get latest fetchOrders
+        if (fetchOrdersRef.current) {
+          fetchOrdersRef.current();
+        }
       };
 
       // Handle order status updates - check if order becomes ready for pickup
@@ -227,7 +240,11 @@ const RiderOrders = () => {
           }
         }
         
-        fetchOrders();
+        // Always refresh orders list when any order update occurs to keep UI in sync
+        console.log('Refreshing orders list due to order update');
+        if (fetchOrdersRef.current) {
+          fetchOrdersRef.current();
+        }
       };
 
       // Listen to all possible socket events
@@ -239,7 +256,9 @@ const RiderOrders = () => {
       socket.on('notification', (data) => {
         console.log('Notification received:', data);
         if (data.type === 'order_ready' || data.message?.includes('ready')) {
-          fetchOrders();
+          if (fetchOrdersRef.current) {
+            fetchOrdersRef.current();
+          }
         }
       });
 
@@ -295,7 +314,10 @@ const RiderOrders = () => {
     try {
       await riderAPI.updateOrderStatus(orderId, newStatus);
       setToast({ message: 'Order status updated successfully', type: 'success' });
-      fetchOrders();
+      // Refresh orders list to get updated status
+      if (fetchOrdersRef.current) {
+        await fetchOrdersRef.current();
+      }
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to update order status';
       setToast({ message: errorMessage, type: 'error' });

@@ -11,6 +11,7 @@ const AvailableOrders = () => {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [acceptingOrderId, setAcceptingOrderId] = useState(null);
+  const fetchAvailableOrdersRef = useRef(null);
 
   // Fetch available orders (READY_FOR_PICKUP and not assigned)
   const fetchAvailableOrders = useCallback(async () => {
@@ -43,14 +44,13 @@ const AvailableOrders = () => {
     }
   }, []);
 
+  // Update ref whenever fetchAvailableOrders changes
+  useEffect(() => {
+    fetchAvailableOrdersRef.current = fetchAvailableOrders;
+  }, [fetchAvailableOrders]);
+
   useEffect(() => {
     fetchAvailableOrders();
-
-    // Set up polling to check for new orders every 5 seconds
-    const pollInterval = setInterval(() => {
-      console.log('Polling for available orders...');
-      fetchAvailableOrders();
-    }, 5000);
 
     // Listen for socket events
     const socket = getSocket();
@@ -60,38 +60,35 @@ const AvailableOrders = () => {
         const order = data.order || data;
         const status = (order.status || '').toUpperCase();
         
-        // If order becomes READY_FOR_PICKUP and not assigned, refresh list
-        if (status === 'READY_FOR_PICKUP' && !order.riderId && !data.riderId) {
-          fetchAvailableOrders();
-        } else if (order.riderId || data.riderId) {
-          // If order gets assigned, remove it from available list
-          fetchAvailableOrders();
+        console.log('Refreshing available orders due to order update');
+        // Always refresh when order updates occur
+        if (fetchAvailableOrdersRef.current) {
+          fetchAvailableOrdersRef.current();
         }
       };
 
       const handleNewOrderReady = (data) => {
         console.log('New order ready event:', data);
-        fetchAvailableOrders();
+        if (fetchAvailableOrdersRef.current) {
+          fetchAvailableOrdersRef.current();
+        }
       };
 
       socket.on('order_update', handleOrderUpdate);
       socket.on('new_order_ready', handleNewOrderReady);
       socket.on('order_ready_for_pickup', handleNewOrderReady);
       socket.on('new_order', handleNewOrderReady);
+      socket.on('order_assigned', handleOrderUpdate); // Also listen for assignments
 
       return () => {
-        clearInterval(pollInterval);
         socket.off('order_update', handleOrderUpdate);
         socket.off('new_order_ready', handleNewOrderReady);
         socket.off('order_ready_for_pickup', handleNewOrderReady);
         socket.off('new_order', handleNewOrderReady);
-      };
-    } else {
-      return () => {
-        clearInterval(pollInterval);
+        socket.off('order_assigned', handleOrderUpdate);
       };
     }
-  }, [fetchAvailableOrders]);
+  }, []);
 
   // Accept order and update status to OUT_FOR_DELIVERY
   const acceptOrder = async (orderId) => {
