@@ -19,21 +19,49 @@ const RiderDashboard = () => {
     try {
       setLoading(true);
       const response = await riderAPI.getAssignedOrders();
-      const orders = response.data || [];
+      
+      console.log('Rider dashboard API response:', response.data);
+      
+      // Handle nested response structure: { status: "success", data: { orders: [...] } }
+      const responseData = response.data?.data || response.data;
+      const orders = Array.isArray(responseData?.orders) 
+        ? responseData.orders 
+        : Array.isArray(responseData) 
+          ? responseData 
+          : [];
+      
+      console.log('Parsed rider orders for dashboard:', orders);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayCompleted = orders.filter(
-        (order) => 
-          order.status === 'delivered' && 
-          new Date(order.updatedAt || order.createdAt) >= today
-      );
+      
+      // Backend status enum: PENDING, ACCEPTED, PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
+      const todayCompleted = orders.filter((order) => {
+        const status = (order.status || '').toUpperCase();
+        const orderDate = new Date(order.updatedAt || order.createdAt || order.deliveredAt);
+        return status === 'DELIVERED' && orderDate >= today;
+      });
+
+      const assignedOrders = orders.filter((o) => {
+        const status = (o.status || '').toUpperCase();
+        return status !== 'DELIVERED' && status !== 'CANCELLED';
+      });
+      
+      const inTransit = orders.filter((o) => {
+        const status = (o.status || '').toUpperCase();
+        return status === 'OUT_FOR_DELIVERY';
+      });
 
       setStats({
-        assignedOrders: orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled').length,
+        assignedOrders: assignedOrders.length,
         completedToday: todayCompleted.length,
-        inTransit: orders.filter((o) => o.status === 'picked_up').length,
-        totalEarnings: todayCompleted.reduce((sum, order) => sum + (order.deliveryFee || 5), 0),
+        inTransit: inTransit.length,
+        totalEarnings: todayCompleted.reduce((sum, order) => {
+          const deliveryFee = typeof order.deliveryFee === 'string' 
+            ? parseFloat(order.deliveryFee) 
+            : (order.deliveryFee || 5);
+          return sum + deliveryFee;
+        }, 0),
       });
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);

@@ -36,52 +36,58 @@ const Cart = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Cart Items */}
         <div className="lg:col-span-2 space-y-4">
-          {items.map((item) => (
-            <div key={item._id} className="card flex items-center justify-between">
-              <div className="flex items-center space-x-4 flex-1">
-                {item.image && (
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-20 h-20 object-cover rounded"
-                  />
-                )}
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold">{item.name}</h3>
-                  <p className="text-gray-600 text-sm">${item.price.toFixed(2)} each</p>
+          {items.map((item) => {
+            const itemId = item.id || item._id;
+            const itemPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price || 0);
+            const imageUrl = item.image || item.imageUrl;
+            
+            return (
+              <div key={itemId} className="card flex items-center justify-between">
+                <div className="flex items-center space-x-4 flex-1">
+                  {imageUrl && (
+                    <img
+                      src={imageUrl}
+                      alt={item.name}
+                      className="w-20 h-20 object-cover rounded"
+                    />
+                  )}
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold">{item.name}</h3>
+                    <p className="text-gray-600 text-sm">${itemPrice.toFixed(2)} each</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => updateQuantity(itemId, item.quantity - 1)}
+                      className="w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-100"
+                    >
+                      −
+                    </button>
+                    <span className="w-8 text-center">{item.quantity}</span>
+                    <button
+                      onClick={() => updateQuantity(itemId, item.quantity + 1)}
+                      className="w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-100"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className="font-semibold w-20 text-right">
+                    ${(itemPrice * item.quantity).toFixed(2)}
+                  </span>
                   <button
-                    onClick={() => updateQuantity(item._id, item.quantity - 1)}
-                    className="w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-100"
+                    onClick={() => removeItem(itemId)}
+                    className="text-red-500 hover:text-red-700"
                   >
-                    −
-                  </button>
-                  <span className="w-8 text-center">{item.quantity}</span>
-                  <button
-                    onClick={() => updateQuantity(item._id, item.quantity + 1)}
-                    className="w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-100"
-                  >
-                    +
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
                   </button>
                 </div>
-                <span className="font-semibold w-20 text-right">
-                  ${(item.price * item.quantity).toFixed(2)}
-                </span>
-                <button
-                  onClick={() => removeItem(item._id)}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Order Summary */}

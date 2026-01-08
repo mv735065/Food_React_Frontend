@@ -21,8 +21,11 @@ import UserOrders from './pages/UserOrders';
 
 // Restaurant Pages
 import RestaurantDashboard from './pages/restaurant/RestaurantDashboard';
+import RestaurantOwnerDashboard from './pages/restaurant/RestaurantOwnerDashboard';
 import ManageMenu from './pages/restaurant/ManageMenu';
 import RestaurantOrders from './pages/restaurant/RestaurantOrders';
+import MyRestaurants from './pages/restaurant/MyRestaurants';
+import CreateRestaurant from './pages/restaurant/CreateRestaurant';
 
 // Rider Pages
 import RiderDashboard from './pages/rider/RiderDashboard';
@@ -88,23 +91,47 @@ function App() {
                   <Route
                     path="/restaurant/dashboard"
                     element={
-                      <ProtectedRoute requiredRole="restaurant">
+                      <ProtectedRoute requiredRole="RESTAURANT">
+                        <RestaurantOwnerDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/restaurant/my-restaurants"
+                    element={
+                      <ProtectedRoute requiredRole="RESTAURANT">
+                        <MyRestaurants />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/restaurant/"
+                    element={
+                      <ProtectedRoute requiredRole="RESTAURANT">
+                        <CreateRestaurant />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/restaurants/:id/dashboard"
+                    element={
+                      <ProtectedRoute requiredRole="RESTAURANT">
                         <RestaurantDashboard />
                       </ProtectedRoute>
                     }
                   />
                   <Route
-                    path="/restaurant/menu"
+                    path="/restaurants/:id/menu"
                     element={
-                      <ProtectedRoute requiredRole="restaurant">
+                      <ProtectedRoute requiredRole="RESTAURANT">
                         <ManageMenu />
                       </ProtectedRoute>
                     }
                   />
                   <Route
-                    path="/restaurant/orders"
+                    path="/restaurants/:id/orders"
                     element={
-                      <ProtectedRoute requiredRole="restaurant">
+                      <ProtectedRoute requiredRole="RESTAURANT">
                         <RestaurantOrders />
                       </ProtectedRoute>
                     }
@@ -114,7 +141,7 @@ function App() {
                   <Route
                     path="/rider/dashboard"
                     element={
-                      <ProtectedRoute requiredRole="rider">
+                      <ProtectedRoute requiredRole="RIDER">
                         <RiderDashboard />
                       </ProtectedRoute>
                     }
@@ -122,7 +149,7 @@ function App() {
                   <Route
                     path="/rider/orders"
                     element={
-                      <ProtectedRoute requiredRole="rider">
+                      <ProtectedRoute requiredRole="RIDER">
                         <RiderOrders />
                       </ProtectedRoute>
                     }
@@ -132,7 +159,7 @@ function App() {
                   <Route
                     path="/admin/users"
                     element={
-                      <ProtectedRoute requiredRole="admin">
+                      <ProtectedRoute requiredRole="ADMIN">
                         <ManageUsers />
                       </ProtectedRoute>
                     }
@@ -140,7 +167,7 @@ function App() {
                   <Route
                     path="/admin/restaurants"
                     element={
-                      <ProtectedRoute requiredRole="admin">
+                      <ProtectedRoute requiredRole="ADMIN">
                         <ManageRestaurants />
                       </ProtectedRoute>
                     }
@@ -148,7 +175,7 @@ function App() {
                   <Route
                     path="/admin/orders"
                     element={
-                      <ProtectedRoute requiredRole="admin">
+                      <ProtectedRoute requiredRole="ADMIN">
                         <ManageOrders />
                       </ProtectedRoute>
                     }

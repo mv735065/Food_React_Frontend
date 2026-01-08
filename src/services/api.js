@@ -68,32 +68,74 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (data) => api.post('/auth/register', data),
-  logout: () => api.post('/auth/logout'),
-  getProfile: () => api.get('/auth/profile'),
-  updateProfile: (data) => api.put('/auth/profile', data),
+  logout: () => api.post('/auth/logout'), // Keep for future backend implementation
+  getProfile: () => api.get('/auth/profile'), // Keep for backward compatibility
+  getMe: () => api.get('/auth/me'), // Backend uses /auth/me
+  updateProfile: (data) => api.put('/auth/profile', data), // Keep for future backend implementation
 };
 
 export const restaurantAPI = {
+  // Public endpoints
   getAll: () => api.get('/restaurants'),
   getById: (id) => api.get(`/restaurants/${id}`),
-  getMenu: (restaurantId) => api.get(`/restaurants/${restaurantId}/menu`),
+  getMenu: (restaurantId) => api.get(`/restaurants/${restaurantId}/menu`), // Public menu (only available items)
+  
+  // Owner/Admin endpoints
+  getMyRestaurants: () => api.get('/restaurants/my-restaurants'), // Get restaurants owned by logged-in user
+  create: (data) => api.post('/restaurants', data), // Create restaurant (owner/admin only)
+  update: (id, data) => api.put(`/restaurants/${id}`, data), // Update restaurant (owner/admin only)
+  delete: (id) => api.delete(`/restaurants/${id}`), // Delete restaurant (owner/admin only)
+  
+  // Menu item management (owner/admin only)
+  getMenuAll: (restaurantId) => api.get(`/restaurants/${restaurantId}/menu/all`), // Get all menu items including unavailable
+  createMenuItem: (restaurantId, menuData) => api.post(`/restaurants/${restaurantId}/menu`, menuData),
+  updateMenuItem: (restaurantId, itemId, menuData) => api.put(`/restaurants/${restaurantId}/menu/items/${itemId}`, menuData),
+  deleteMenuItem: (restaurantId, itemId) => api.delete(`/restaurants/${restaurantId}/menu/items/${itemId}`),
+  
+  // Legacy endpoints (keep for backward compatibility)
   updateMenu: (restaurantId, menuData) => api.put(`/restaurants/${restaurantId}/menu`, menuData),
-  getOrders: (restaurantId) => api.get(`/restaurants/${restaurantId}/orders`),
+  // Get orders for a specific restaurant - uses /orders endpoint with restaurantId query param
+  // Backend validates restaurant belongs to authenticated user
+  getOrders: (restaurantId) => orderAPI.getAll(restaurantId),
   updateOrderStatus: (orderId, status) => api.put(`/orders/${orderId}/status`, { status }),
 };
 
 export const orderAPI = {
   create: (orderData) => api.post('/orders', orderData),
-  getAll: () => api.get('/orders'),
+  // Get orders - backend automatically filters by authenticated user's role from JWT token
+  // For USER: filters by userId
+  // For RESTAURANT: filters by restaurants owned by user (optional restaurantId query param)
+  // For RIDER: filters by riderId
+  // For ADMIN: returns all orders
+  // Optional query params: ?restaurantId=xxx&status=xxx
+  getAll: (restaurantId, status) => {
+    const params = new URLSearchParams();
+    if (restaurantId) params.append('restaurantId', restaurantId);
+    if (status) params.append('status', status);
+    const queryString = params.toString();
+    return api.get(`/orders${queryString ? `?${queryString}` : ''}`);
+  },
   getById: (id) => api.get(`/orders/${id}`),
   updateStatus: (id, status) => api.put(`/orders/${id}/status`, { status }),
-  getByUser: () => api.get('/orders/user'),
+  assignRider: (id, riderId) => api.put(`/orders/${id}/assign-rider`, { riderId }),
+  getByUser: () => api.get('/orders'), // Get user orders - backend filters by authenticated user from JWT token
 };
 
 export const riderAPI = {
-  getAssignedOrders: () => api.get('/riders/orders'),
-  updateOrderStatus: (orderId, status) => api.put(`/orders/${orderId}/status`, { status }),
-  acceptOrder: (orderId) => api.post(`/orders/${orderId}/accept`),
+  getAssignedOrders: () => api.get('/rider/orders'), // Backend uses /rider/orders
+  updateOrderStatus: (orderId, status) => api.put(`/rider/orders/${orderId}/status`, { status }), // Backend uses /rider/orders/:id/status
+  acceptOrder: (orderId) => api.post(`/orders/${orderId}/accept`), // Keep for future backend implementation
+};
+
+export const paymentAPI = {
+  payOrder: (orderId, paymentData) => api.post('/payments/pay', { orderId, ...paymentData }),
+};
+
+export const notificationAPI = {
+  getAll: () => api.get('/notifications'),
+  getUnreadCount: () => api.get('/notifications/unread/count'),
+  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/notifications/read/all'),
 };
 
 export const adminAPI = {

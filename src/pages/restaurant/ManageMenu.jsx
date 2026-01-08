@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { restaurantAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/Modal';
@@ -6,6 +7,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import Toast from '../../components/Toast';
 
 const ManageMenu = () => {
+  const { id: restaurantId } = useParams();
   const { user } = useAuth();
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,23 +22,26 @@ const ManageMenu = () => {
     available: true,
   });
   const [toast, setToast] = useState(null);
-  const [restaurantId, setRestaurantId] = useState(null);
 
   useEffect(() => {
-    // In a real app, get restaurant ID from user profile or API
-    // For now, we'll assume it's in user.restaurantId
-    if (user?.restaurantId) {
-      setRestaurantId(user.restaurantId);
+    if (restaurantId) {
       fetchMenu();
     }
-  }, [user]);
+  }, [restaurantId]);
 
   const fetchMenu = async () => {
     if (!restaurantId) return;
     try {
       setLoading(true);
-      const response = await restaurantAPI.getMenu(restaurantId);
-      setMenuItems(response.data || []);
+      // Use getMenuAll to get all menu items including unavailable (owner/admin only)
+      const response = await restaurantAPI.getMenuAll(restaurantId);
+      
+      // Handle nested response structure: { status: "success", data: { menuItems: [...] } }
+      const responseData = response.data?.data || response.data;
+      const menuItems = responseData?.menuItems || responseData || [];
+      
+      console.log('Fetched menu items:', menuItems);
+      setMenuItems(Array.isArray(menuItems) ? menuItems : []);
     } catch (error) {
       console.error('Failed to fetch menu:', error);
       setToast({ message: 'Failed to load menu', type: 'error' });
@@ -47,21 +52,36 @@ const ManageMenu = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!restaurantId) {
+      setToast({ message: 'No restaurant selected', type: 'error' });
+      return;
+    }
+    
     try {
+      // Prepare data for API - convert available to isAvailable if needed
+      const menuItemData = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        price: parseFloat(formData.price),
+        isAvailable: formData.available,
+      };
+
+      // Add optional fields only if they have values
+      if (formData.category.trim()) {
+        menuItemData.category = formData.category.trim();
+      }
+      if (formData.image.trim()) {
+        menuItemData.image = formData.image.trim();
+      }
+
       if (editingItem) {
-        // Update existing item
-        await restaurantAPI.updateMenu(restaurantId, {
-          ...formData,
-          _id: editingItem._id,
-          price: parseFloat(formData.price),
-        });
+        // Use new PUT endpoint for updating menu items
+        const itemId = editingItem.id || editingItem._id;
+        await restaurantAPI.updateMenuItem(restaurantId, itemId, menuItemData);
         setToast({ message: 'Menu item updated successfully', type: 'success' });
       } else {
-        // Add new item
-        await restaurantAPI.updateMenu(restaurantId, {
-          ...menuItems,
-          items: [...menuItems, { ...formData, price: parseFloat(formData.price) }],
-        });
+        // Add new item using POST
+        await restaurantAPI.createMenuItem(restaurantId, menuItemData);
         setToast({ message: 'Menu item added successfully', type: 'success' });
       }
       setIsModalOpen(false);
@@ -69,7 +89,7 @@ const ManageMenu = () => {
       setFormData({ name: '', description: '', price: '', category: '', image: '', available: true });
       fetchMenu();
     } catch (error) {
-      setToast({ message: 'Failed to save menu item', type: 'error' });
+      setToast({ message: error.response?.data?.message || 'Failed to save menu item', type: 'error' });
     }
   };
 
@@ -78,24 +98,28 @@ const ManageMenu = () => {
     setFormData({
       name: item.name || '',
       description: item.description || '',
-      price: item.price?.toString() || '',
+      price: typeof item.price === 'string' ? item.price : (item.price?.toString() || ''),
       category: item.category || '',
-      image: item.image || '',
-      available: item.available !== false,
+      image: item.image || item.imageUrl || '',
+      available: item.isAvailable !== false && item.available !== false,
     });
     setIsModalOpen(true);
   };
 
   const handleDelete = async (itemId) => {
     if (!window.confirm('Are you sure you want to delete this menu item?')) return;
+    if (!restaurantId) {
+      setToast({ message: 'No restaurant selected', type: 'error' });
+      return;
+    }
     
     try {
-      const updatedMenu = menuItems.filter(item => item._id !== itemId);
-      await restaurantAPI.updateMenu(restaurantId, { items: updatedMenu });
+      // Use new DELETE endpoint for menu items
+      await restaurantAPI.deleteMenuItem(restaurantId, itemId);
       setToast({ message: 'Menu item deleted successfully', type: 'success' });
       fetchMenu();
     } catch (error) {
-      setToast({ message: 'Failed to delete menu item', type: 'error' });
+      setToast({ message: error.response?.data?.message || 'Failed to delete menu item', type: 'error' });
     }
   };
 
@@ -129,38 +153,45 @@ const ManageMenu = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.map((item) => (
-            <div key={item._id} className="card">
-              {item.image && (
-                <img src={item.image} alt={item.name} className="w-full h-48 object-cover rounded-lg mb-4" />
-              )}
-              <h3 className="text-xl font-semibold mb-2">{item.name}</h3>
-              <p className="text-gray-600 mb-2 text-sm">{item.description}</p>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-2xl font-bold text-primary-600">
-                  ${item.price?.toFixed(2) || '0.00'}
-                </span>
-                <span className={`px-2 py-1 rounded text-xs ${
-                  item.available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {item.available ? 'Available' : 'Unavailable'}
-                </span>
+          {menuItems.map((item) => {
+            const itemId = item.id || item._id;
+            const price = typeof item.price === 'string' ? parseFloat(item.price) : (item.price || 0);
+            const isAvailable = item.isAvailable !== false && item.available !== false;
+            const imageUrl = item.image || item.imageUrl;
+            
+            return (
+              <div key={itemId} className="card">
+                {imageUrl && (
+                  <img src={imageUrl} alt={item.name} className="w-full h-48 object-cover rounded-lg mb-4" />
+                )}
+                <h3 className="text-xl font-semibold mb-2">{item.name}</h3>
+                <p className="text-gray-600 mb-2 text-sm">{item.description || 'No description'}</p>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-2xl font-bold text-primary-600">
+                    ${price.toFixed(2)}
+                  </span>
+                  <span className={`px-2 py-1 rounded text-xs ${
+                    isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {isAvailable ? 'Available' : 'Unavailable'}
+                  </span>
+                </div>
+                {item.category && (
+                  <span className="inline-block mb-4 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                    {item.category}
+                  </span>
+                )}
+                <div className="flex space-x-2">
+                  <button onClick={() => handleEdit(item)} className="btn-secondary flex-1">
+                    Edit
+                  </button>
+                  <button onClick={() => handleDelete(itemId)} className="btn-secondary bg-red-500 hover:bg-red-600 text-white flex-1">
+                    Delete
+                  </button>
+                </div>
               </div>
-              {item.category && (
-                <span className="inline-block mb-4 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
-                  {item.category}
-                </span>
-              )}
-              <div className="flex space-x-2">
-                <button onClick={() => handleEdit(item)} className="btn-secondary flex-1">
-                  Edit
-                </button>
-                <button onClick={() => handleDelete(item._id)} className="btn-secondary bg-red-500 hover:bg-red-600 text-white flex-1">
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

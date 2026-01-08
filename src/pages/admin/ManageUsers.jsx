@@ -79,12 +79,12 @@ const ManageUsers = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
-                      user.role === 'restaurant' ? 'bg-blue-100 text-blue-800' :
-                      user.role === 'rider' ? 'bg-green-100 text-green-800' :
+                      user.role?.toUpperCase() === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
+                      user.role?.toUpperCase() === 'RESTAURANT' ? 'bg-blue-100 text-blue-800' :
+                      user.role?.toUpperCase() === 'RIDER' ? 'bg-green-100 text-green-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
-                      {user.role || 'customer'}
+                      {user.role || 'USER'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">

@@ -13,7 +13,7 @@ const Checkout = () => {
   const [formData, setFormData] = useState({
     deliveryAddress: user?.address || '',
     phoneNumber: user?.phone || '',
-    paymentMethod: 'card',
+    paymentMethod: 'cash', // Default to cash on delivery since payment is not available
     cardNumber: '',
     cardName: '',
     expiryDate: '',
@@ -40,24 +40,44 @@ const Checkout = () => {
     setLoading(true);
 
     try {
+      // Prepare order items - use id or _id, ensure price is number
+      const orderItems = items.map((item) => {
+        const menuItemId = item.id || item._id;
+        const itemPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price || 0);
+        
+        if (!menuItemId) {
+          throw new Error(`Invalid menu item: ${item.name}`);
+        }
+        
+        return {
+          menuItemId,
+          quantity: item.quantity,
+          price: itemPrice,
+        };
+      });
+
       const orderData = {
         restaurantId,
-        items: items.map(({ _id, quantity, price }) => ({
-          menuItemId: _id,
-          quantity,
-          price,
-        })),
-        deliveryAddress: formData.deliveryAddress,
-        phoneNumber: formData.phoneNumber,
+        items: orderItems,
+        deliveryAddress: formData.deliveryAddress.trim(),
+        phoneNumber: formData.phoneNumber.trim(),
         paymentMethod: formData.paymentMethod,
-        totalAmount: totalPrice + 5 + totalPrice * 0.1, // Subtotal + Delivery + Tax
+        totalAmount: grandTotal,
       };
 
+      console.log('Placing order with data:', orderData);
+
       const response = await orderAPI.create(orderData);
+      
+      // Handle nested response structure
+      const orderId = response.data?.data?.id || response.data?.data?._id || response.data?.id || response.data?._id;
+      
       clearCart();
       setToast({ message: 'Order placed successfully!', type: 'success' });
+      
+      // Navigate to orders page after successful order
       setTimeout(() => {
-        navigate(`/orders/${response.data._id}`);
+        navigate('/orders');
       }, 1500);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to place order. Please try again.');
@@ -147,12 +167,11 @@ const Checkout = () => {
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Card Number *
+                      Card Number
                     </label>
                     <input
                       type="text"
                       name="cardNumber"
-                      required={formData.paymentMethod === 'card'}
                       className="input-field"
                       value={formData.cardNumber}
                       onChange={handleChange}
@@ -162,12 +181,11 @@ const Checkout = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cardholder Name *
+                      Cardholder Name
                     </label>
                     <input
                       type="text"
                       name="cardName"
-                      required={formData.paymentMethod === 'card'}
                       className="input-field"
                       value={formData.cardName}
                       onChange={handleChange}
@@ -177,12 +195,11 @@ const Checkout = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Expiry Date *
+                        Expiry Date
                       </label>
                       <input
                         type="text"
                         name="expiryDate"
-                        required={formData.paymentMethod === 'card'}
                         className="input-field"
                         value={formData.expiryDate}
                         onChange={handleChange}
@@ -192,12 +209,11 @@ const Checkout = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        CVV *
+                        CVV
                       </label>
                       <input
                         type="text"
                         name="cvv"
-                        required={formData.paymentMethod === 'card'}
                         className="input-field"
                         value={formData.cvv}
                         onChange={handleChange}
@@ -207,9 +223,14 @@ const Checkout = () => {
                     </div>
                   </div>
                   <p className="text-sm text-gray-500">
-                    * This is a dummy payment system. No actual payment will be processed.
+                    * Payment processing is not available. Order will be placed without payment.
                   </p>
                 </>
+              )}
+              {formData.paymentMethod === 'cash' && (
+                <p className="text-sm text-gray-500">
+                  Payment will be collected on delivery.
+                </p>
               )}
             </div>
           </div>
@@ -220,14 +241,18 @@ const Checkout = () => {
           <div className="card sticky top-20">
             <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
             <div className="space-y-2 mb-4">
-              {items.map((item) => (
-                <div key={item._id} className="flex justify-between text-sm">
-                  <span>
-                    {item.name} x {item.quantity}
-                  </span>
-                  <span>${(item.price * item.quantity).toFixed(2)}</span>
-                </div>
-              ))}
+              {items.map((item) => {
+                const itemId = item.id || item._id;
+                const itemPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price || 0);
+                return (
+                  <div key={itemId} className="flex justify-between text-sm">
+                    <span>
+                      {item.name} x {item.quantity}
+                    </span>
+                    <span>${(itemPrice * item.quantity).toFixed(2)}</span>
+                  </div>
+                );
+              })}
               <div className="border-t pt-2 flex justify-between">
                 <span>Subtotal</span>
                 <span>${totalPrice.toFixed(2)}</span>

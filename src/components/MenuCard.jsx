@@ -7,21 +7,26 @@ const MenuCard = ({ item, restaurantId }) => {
     addItem(item, restaurantId);
   };
 
+  const price = typeof item.price === 'number' ? item.price : parseFloat(item.price || 0);
+  const imageUrl = item.image || item.imageUrl;
+
   return (
     <div className="card hover:shadow-lg transition-shadow">
-      {item.image && (
+      {imageUrl && (
         <img
-          src={item.image}
+          src={imageUrl}
           alt={item.name}
           className="w-full h-48 object-cover rounded-t-lg"
         />
       )}
       <div className="p-4">
         <h3 className="text-xl font-semibold mb-2">{item.name}</h3>
-        <p className="text-gray-600 mb-3 text-sm line-clamp-2">{item.description}</p>
+        {item.description && (
+          <p className="text-gray-600 mb-3 text-sm line-clamp-2">{item.description}</p>
+        )}
         <div className="flex items-center justify-between">
           <span className="text-2xl font-bold text-primary-600">
-            ${item.price.toFixed(2)}
+            ${price.toFixed(2)}
           </span>
           <button onClick={handleAddToCart} className="btn-primary">
             Add to Cart

@@ -17,7 +17,11 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && user?.role !== requiredRole) {
+  // Normalize roles to uppercase for comparison (backend uses uppercase: USER, RESTAURANT, RIDER, ADMIN)
+  const userRole = user?.role?.toUpperCase();
+  const normalizedRequiredRole = requiredRole?.toUpperCase();
+  
+  if (requiredRole && userRole !== normalizedRequiredRole) {
     return <Navigate to="/" replace />;
   }
 

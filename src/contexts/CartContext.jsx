@@ -46,20 +46,31 @@ export const CartProvider = ({ children }) => {
       }
 
       setRestaurantId(newRestaurantId);
-      const existingItem = prevItems.find((i) => i._id === item._id);
+      // Normalize item ID - use id or _id
+      const itemId = item.id || item._id;
+      const existingItem = prevItems.find((i) => (i.id || i._id) === itemId);
       
       if (existingItem) {
-        return prevItems.map((i) =>
-          i._id === item._id ? { ...i, quantity: i.quantity + 1 } : i
-        );
+        return prevItems.map((i) => {
+          const iId = i.id || i._id;
+          return iId === itemId ? { ...i, quantity: i.quantity + 1 } : i;
+        });
       }
       
-      return [...prevItems, { ...item, quantity: 1 }];
+      // Normalize price to number
+      const normalizedItem = {
+        ...item,
+        id: item.id || item._id,
+        price: typeof item.price === 'number' ? item.price : parseFloat(item.price || 0),
+        quantity: 1
+      };
+      
+      return [...prevItems, normalizedItem];
     });
   };
 
   const removeItem = (itemId) => {
-    setItems((prevItems) => prevItems.filter((i) => i._id !== itemId));
+    setItems((prevItems) => prevItems.filter((i) => (i.id || i._id) !== itemId));
     if (items.length === 1) {
       setRestaurantId(null);
     }
@@ -72,7 +83,10 @@ export const CartProvider = ({ children }) => {
     }
     
     setItems((prevItems) =>
-      prevItems.map((i) => (i._id === itemId ? { ...i, quantity } : i))
+      prevItems.map((i) => {
+        const iId = i.id || i._id;
+        return iId === itemId ? { ...i, quantity } : i;
+      })
     );
   };
 

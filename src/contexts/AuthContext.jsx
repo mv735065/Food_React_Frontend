@@ -22,7 +22,15 @@ export const AuthProvider = ({ children }) => {
     const savedUser = localStorage.getItem('user');
     if (savedUser && token) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        // Normalize role when loading from localStorage
+        // Ensure restaurants array exists
+        const normalizedUser = {
+          ...parsedUser,
+          role: parsedUser.role?.toUpperCase() || parsedUser.role,
+          restaurants: parsedUser.restaurants || []
+        };
+        setUser(normalizedUser);
         // Initialize socket connection
         initSocket(token);
       } catch (error) {
@@ -59,10 +67,18 @@ export const AuthProvider = ({ children }) => {
         };
       }
       
+      // Ensure role is normalized (backend returns uppercase)
+      // Backend now includes restaurants array for restaurant owners
+      const normalizedUser = {
+        ...userData,
+        role: userData.role?.toUpperCase() || userData.role,
+        restaurants: userData.restaurants || [] // Restaurants array from backend
+      };
+      
       setToken(newToken);
-      setUser(userData);
+      setUser(normalizedUser);
       localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
       
       // Initialize socket connection
       initSocket(newToken);
@@ -122,10 +138,18 @@ export const AuthProvider = ({ children }) => {
         };
       }
       
+      // Ensure role is normalized (backend returns uppercase)
+      // Backend now includes restaurants array for restaurant owners
+      const normalizedUser = {
+        ...registeredUser,
+        role: registeredUser.role?.toUpperCase() || registeredUser.role,
+        restaurants: registeredUser.restaurants || [] // Restaurants array from backend
+      };
+      
       setToken(newToken);
-      setUser(registeredUser);
+      setUser(normalizedUser);
       localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(registeredUser));
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
       
       // Initialize socket connection
       initSocket(newToken);
@@ -162,9 +186,11 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      // Try to call backend logout endpoint if it exists
       await authAPI.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      // If backend doesn't have logout endpoint, just continue with local cleanup
+      console.log('Logout endpoint not available, clearing local storage');
     } finally {
       setUser(null);
       setToken(null);
@@ -175,15 +201,49 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateUser = (userData) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
+    // Normalize user data
+    const normalizedUser = {
+      ...userData,
+      role: userData.role?.toUpperCase() || userData.role,
+      restaurants: userData.restaurants || []
+    };
+    setUser(normalizedUser);
+    localStorage.setItem('user', JSON.stringify(normalizedUser));
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await authAPI.getMe();
+      
+      // Handle nested response structure
+      let responseData = response.data;
+      if (responseData?.data && (responseData.success || responseData.status === 'success')) {
+        responseData = responseData.data;
+      }
+      
+      const userData = responseData?.user || responseData;
+      if (userData) {
+        const normalizedUser = {
+          ...userData,
+          role: userData.role?.toUpperCase() || userData.role,
+          restaurants: userData.restaurants || []
+        };
+        setUser(normalizedUser);
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
+      }
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    }
+  };
+
+  // Normalize role to uppercase for comparison (backend uses uppercase: USER, RESTAURANT, RIDER, ADMIN)
+  const normalizedRole = user?.role?.toUpperCase();
+
   const isAuthenticated = !!user && !!token;
-  const isRestaurant = user?.role === 'restaurant';
-  const isRider = user?.role === 'rider';
-  const isAdmin = user?.role === 'admin';
-  const isCustomer = user?.role === 'customer' || !user?.role;
+  const isRestaurant = normalizedRole === 'RESTAURANT';
+  const isRider = normalizedRole === 'RIDER';
+  const isAdmin = normalizedRole === 'ADMIN';
+  const isCustomer = normalizedRole === 'USER' || !normalizedRole;
 
   const value = {
     user,
@@ -198,6 +258,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

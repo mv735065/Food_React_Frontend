@@ -27,11 +27,32 @@ const RestaurantMenu = () => {
         restaurantAPI.getById(id),
         restaurantAPI.getMenu(id),
       ]);
-      setRestaurant(restaurantRes.data);
-      setMenu(menuRes.data || []);
+      
+      // Handle nested response structure for restaurant
+      const restaurantData = restaurantRes.data?.data || restaurantRes.data;
+      const restaurant = restaurantData?.restaurant || restaurantData;
+      setRestaurant(restaurant);
+      
+      // Handle nested response structure for menu: { status: "success", data: { menuItems: [...] } }
+      const menuResponseData = menuRes.data?.data || menuRes.data;
+      const menuItems = menuResponseData?.menuItems || menuResponseData || [];
+      
+      // Filter only available items and normalize data
+      const availableMenuItems = Array.isArray(menuItems) 
+        ? menuItems
+            .filter(item => item.isAvailable !== false)
+            .map(item => ({
+              ...item,
+              id: item.id || item._id,
+              price: typeof item.price === 'string' ? parseFloat(item.price) : (item.price || 0),
+              image: item.image || item.imageUrl,
+            }))
+        : [];
+      
+      setMenu(availableMenuItems);
     } catch (err) {
       setError('Failed to load restaurant menu. Please try again.');
-      console.error(err);
+      console.error('Error fetching restaurant menu:', err);
     } finally {
       setLoading(false);
     }
@@ -80,16 +101,19 @@ const RestaurantMenu = () => {
           ← Back to Restaurants
         </button>
         <div className="card">
-          {restaurant.image && (
+          {(restaurant.image || restaurant.imageUrl) && (
             <img
-              src={restaurant.image}
+              src={restaurant.image || restaurant.imageUrl}
               alt={restaurant.name}
               className="w-full h-64 object-cover rounded-lg mb-4"
             />
           )}
           <h1 className="text-3xl font-bold mb-2">{restaurant.name}</h1>
-          <p className="text-gray-600 mb-2">{restaurant.cuisine}</p>
+          <p className="text-gray-600 mb-2">{restaurant.cuisineType || restaurant.cuisine}</p>
           <p className="text-gray-700">{restaurant.address}</p>
+          {restaurant.description && (
+            <p className="text-gray-600 mt-2">{restaurant.description}</p>
+          )}
         </div>
       </div>
 
@@ -103,7 +127,7 @@ const RestaurantMenu = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {menu.map((item) => (
             <MenuCard
-              key={item._id}
+              key={item.id || item._id}
               item={item}
               restaurantId={id}
             />

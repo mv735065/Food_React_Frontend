@@ -17,15 +17,37 @@ const OrderStatus = () => {
     const socket = getSocket();
     if (socket) {
       const handleOrderUpdate = (data) => {
-        if (data.orderId === id) {
-          setOrder((prev) => ({ ...prev, status: data.status }));
+        const orderId = data.orderId || data.id || data.order?.id || data.order?._id;
+        if (orderId === id) {
+          setOrder((prev) => {
+            if (!prev) return prev;
+            // Update order with new data (status, rider, etc.)
+            return { 
+              ...prev, 
+              status: data.status || data.order?.status || prev.status,
+              rider: data.rider || data.order?.rider || prev.rider,
+              riderId: data.riderId || data.order?.riderId || prev.riderId
+            };
+          });
+        }
+      };
+
+      const handleRiderAssigned = (data) => {
+        const orderId = data.orderId || data.id || data.order?.id || data.order?._id;
+        if (orderId === id) {
+          // Refresh order to get updated rider information
+          fetchOrder();
         }
       };
 
       socket.on('order_update', handleOrderUpdate);
+      socket.on('order_assigned', handleRiderAssigned);
+      socket.on('rider_update', handleRiderAssigned);
 
       return () => {
         socket.off('order_update', handleOrderUpdate);
+        socket.off('order_assigned', handleRiderAssigned);
+        socket.off('rider_update', handleRiderAssigned);
       };
     }
   }, [id]);
@@ -34,30 +56,55 @@ const OrderStatus = () => {
     try {
       setLoading(true);
       const response = await orderAPI.getById(id);
-      setOrder(response.data);
+      
+      console.log('Order API response:', response.data);
+      
+      // Handle nested response structure: { status: "success", data: { order: {...} } }
+      const responseData = response.data?.data || response.data;
+      const orderData = responseData?.order || responseData;
+      
+      console.log('Parsed order data:', orderData);
+      setOrder(orderData);
     } catch (err) {
       setError('Failed to load order details. Please try again.');
-      console.error(err);
+      console.error('Error fetching order:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const getStatusSteps = () => {
+    // Backend status enum: PENDING, ACCEPTED, PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
     const statuses = [
       { key: 'pending', label: 'Order Placed' },
-      { key: 'confirmed', label: 'Confirmed' },
+      { key: 'accepted', label: 'Accepted' },
       { key: 'preparing', label: 'Preparing' },
-      { key: 'ready', label: 'Ready' },
-      { key: 'picked_up', label: 'Picked Up' },
+      { key: 'ready_for_pickup', label: 'Ready for Pickup' },
+      { key: 'out_for_delivery', label: 'Out for Delivery' },
       { key: 'delivered', label: 'Delivered' },
     ];
 
-    const currentStatusIndex = statuses.findIndex((s) => s.key === order?.status);
+    // Normalize status to lowercase for comparison
+    const normalizedStatus = (order?.status || '').toLowerCase().replace(/-/g, '_');
+    
+    // Find current status index - handle both old and new status formats
+    const statusMapping = {
+      'pending': 0,
+      'accepted': 1,
+      'confirmed': 1, // Legacy status
+      'preparing': 2,
+      'ready': 3, // Legacy status
+      'ready_for_pickup': 3,
+      'picked_up': 4, // Legacy status
+      'out_for_delivery': 4,
+      'delivered': 5,
+    };
+    
+    const currentStatusIndex = statusMapping[normalizedStatus] ?? -1;
     
     return statuses.map((status, index) => ({
       ...status,
-      completed: index <= currentStatusIndex,
+      completed: index <= currentStatusIndex && currentStatusIndex >= 0,
       current: index === currentStatusIndex,
     }));
   };
@@ -88,7 +135,7 @@ const OrderStatus = () => {
         ← Back to Orders
       </Link>
 
-      <h1 className="text-3xl font-bold mb-8">Order #{order._id.slice(-6)}</h1>
+      <h1 className="text-3xl font-bold mb-8">Order #{(order.id || order._id)?.slice(-6) || 'N/A'}</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Order Status Timeline */}
@@ -145,34 +192,55 @@ const OrderStatus = () => {
             <div>
               <h3 className="font-semibold mb-2">Items</h3>
               <div className="space-y-2">
-                {order.items?.map((item, index) => (
-                  <div key={index} className="flex justify-between text-sm">
-                    <span>
-                      {item.name || `Item ${index + 1}`} x {item.quantity}
-                    </span>
-                    <span>${(item.price * item.quantity).toFixed(2)}</span>
-                  </div>
-                ))}
+                {order.items?.map((item, index) => {
+                  const itemPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price || 0);
+                  return (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span>
+                        {item.name || `Item ${index + 1}`} x {item.quantity}
+                      </span>
+                      <span>${(itemPrice * item.quantity).toFixed(2)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             <div className="border-t pt-4">
-              <div className="flex justify-between mb-2">
-                <span>Subtotal</span>
-                <span>${order.subtotal?.toFixed(2) || '0.00'}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span>Delivery Fee</span>
-                <span>$5.00</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span>Tax</span>
-                <span>${(order.totalAmount * 0.1 / 1.1).toFixed(2)}</span>
-              </div>
-              <div className="border-t pt-2 flex justify-between font-bold">
-                <span>Total</span>
-                <span>${order.totalAmount?.toFixed(2) || '0.00'}</span>
-              </div>
+              {(() => {
+                const totalAmount = typeof order.totalAmount === 'string' 
+                  ? parseFloat(order.totalAmount) 
+                  : (order.totalAmount || 0);
+                const subtotal = order.items?.reduce((sum, item) => {
+                  const itemPrice = typeof item.price === 'number' ? item.price : parseFloat(item.price || 0);
+                  return sum + (itemPrice * item.quantity);
+                }, 0) || totalAmount;
+                const deliveryFee = 5;
+                const tax = totalAmount - subtotal - deliveryFee;
+                
+                return (
+                  <>
+                    <div className="flex justify-between mb-2">
+                      <span>Subtotal</span>
+                      <span>${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between mb-2">
+                      <span>Delivery Fee</span>
+                      <span>${deliveryFee.toFixed(2)}</span>
+                    </div>
+                    {tax > 0 && (
+                      <div className="flex justify-between mb-2">
+                        <span>Tax</span>
+                        <span>${tax.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="border-t pt-2 flex justify-between font-bold">
+                      <span>Total</span>
+                      <span>${totalAmount.toFixed(2)}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             {order.deliveryAddress && (
@@ -186,6 +254,40 @@ const OrderStatus = () => {
               <div className="border-t pt-4">
                 <h3 className="font-semibold mb-2">Restaurant</h3>
                 <p className="text-sm text-gray-600">{order.restaurant.name}</p>
+              </div>
+            )}
+
+            {/* Rider Information */}
+            {order.rider && (
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-2">Rider Assigned</h3>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-primary-600">
+                    {order.rider.name || order.rider.email || 'Rider'}
+                  </p>
+                  {order.rider.phone && (
+                    <p className="text-sm text-gray-600">Phone: {order.rider.phone}</p>
+                  )}
+                  {order.rider.vehicleNumber && (
+                    <p className="text-sm text-gray-600">Vehicle: {order.rider.vehicleNumber}</p>
+                  )}
+                  <div className="mt-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-800 font-medium">
+                      ✓ Your order has been accepted by a rider!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {order.riderId && !order.rider && (
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-2">Rider Assigned</h3>
+                <div className="mt-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium">
+                    ✓ Your order has been accepted by a rider!
+                  </p>
+                </div>
               </div>
             )}
           </div>

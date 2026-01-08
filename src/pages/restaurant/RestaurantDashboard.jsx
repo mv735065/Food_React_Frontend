@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { restaurantAPI, orderAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 const RestaurantDashboard = () => {
+  const { id: restaurantId } = useParams();
   const { user } = useAuth();
   const [stats, setStats] = useState({
     totalOrders: 0,
@@ -15,16 +17,26 @@ const RestaurantDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (restaurantId) {
+      fetchDashboardData();
+    }
+  }, [restaurantId]);
 
   const fetchDashboardData = async () => {
+    if (!restaurantId) return;
+    
     try {
       setLoading(true);
-      // Assuming restaurant ID is stored in user object or we need to fetch it
-      // This is a placeholder - adjust based on your backend structure
-      const ordersResponse = await orderAPI.getAll();
-      const orders = ordersResponse.data || [];
+      // Get orders for the specific restaurant using query parameter
+      const ordersResponse = await restaurantAPI.getOrders(restaurantId);
+      
+      // Handle nested response structure: { status: "success", data: { orders: [...] } }
+      const responseData = ordersResponse.data?.data || ordersResponse.data;
+      const orders = Array.isArray(responseData?.orders) 
+        ? responseData.orders 
+        : Array.isArray(responseData) 
+          ? responseData 
+          : [];
       
       const today = new Date();
       today.setHours(0, 0, 0, 0);

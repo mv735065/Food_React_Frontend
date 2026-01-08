@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { getSocket } from '../services/socket';
+import { notificationAPI } from '../services/api';
 
 const NotificationContext = createContext(null);
 
@@ -19,6 +20,27 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     if (!isAuthenticated || !token) return;
+
+    // Fetch notifications from backend
+    const fetchNotifications = async () => {
+      try {
+        const [notificationsRes, countRes] = await Promise.all([
+          notificationAPI.getAll(),
+          notificationAPI.getUnreadCount(),
+        ]);
+        
+        // Handle nested response structure
+        const notificationsData = notificationsRes.data?.data || notificationsRes.data || [];
+        const countData = countRes.data?.data || countRes.data || 0;
+        
+        setNotifications(Array.isArray(notificationsData) ? notificationsData : []);
+        setUnreadCount(typeof countData === 'number' ? countData : 0);
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+      }
+    };
+
+    fetchNotifications();
 
     const socket = getSocket();
     if (!socket) return;
@@ -79,18 +101,38 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [isAuthenticated, token]);
 
-  const markAsRead = (notificationId) => {
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n._id === notificationId ? { ...n, read: true } : n
-      )
-    );
-    setUnreadCount((prev) => Math.max(0, prev - 1));
+  const markAsRead = async (notificationId) => {
+    try {
+      await notificationAPI.markAsRead(notificationId);
+      setNotifications((prev) =>
+        prev.map((n) =>
+          (n.id || n._id) === notificationId ? { ...n, read: true } : n
+        )
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+      // Still update UI optimistically
+      setNotifications((prev) =>
+        prev.map((n) =>
+          (n.id || n._id) === notificationId ? { ...n, read: true } : n
+        )
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    setUnreadCount(0);
+  const markAllAsRead = async () => {
+    try {
+      await notificationAPI.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+      // Still update UI optimistically
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    }
   };
 
   const removeNotification = (notificationId) => {
