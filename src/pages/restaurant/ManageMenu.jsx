@@ -71,7 +71,7 @@ const ManageMenu = () => {
         menuItemData.category = formData.category.trim();
       }
       if (formData.image.trim()) {
-        menuItemData.image = formData.image.trim();
+        menuItemData.imageUrl = formData.image.trim(); // Backend expects imageUrl
       }
 
       if (editingItem) {
@@ -157,37 +157,41 @@ const ManageMenu = () => {
             const itemId = item.id || item._id;
             const price = typeof item.price === 'string' ? parseFloat(item.price) : (item.price || 0);
             const isAvailable = item.isAvailable !== false && item.available !== false;
-            const imageUrl = item.image || item.imageUrl;
+            const imageUrl = item.image || item.imageUrl || `https://placehold.co/600x400?text=${encodeURIComponent(item.name || 'Menu Item')}`;
             
             return (
-              <div key={itemId} className="card">
+              <div key={itemId} className="bg-white rounded-lg shadow-md overflow-hidden">
                 {imageUrl && (
-                  <img src={imageUrl} alt={item.name} className="w-full h-48 object-cover rounded-lg mb-4" />
+                  <img src={imageUrl} alt={item.name} className="w-full h-48 object-cover" />
                 )}
-                <h3 className="text-xl font-semibold mb-2">{item.name}</h3>
-                <p className="text-gray-600 mb-2 text-sm">{item.description || 'No description'}</p>
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-2xl font-bold text-primary-600">
-                    ${price.toFixed(2)}
-                  </span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {isAvailable ? 'Available' : 'Unavailable'}
-                  </span>
-                </div>
-                {item.category && (
-                  <span className="inline-block mb-4 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
-                    {item.category}
-                  </span>
-                )}
-                <div className="flex space-x-2">
-                  <button onClick={() => handleEdit(item)} className="btn-secondary flex-1">
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(itemId)} className="btn-secondary bg-red-500 hover:bg-red-600 text-white flex-1">
-                    Delete
-                  </button>
+                <div className="p-2 mx-2 mb-0">
+                  <h3 className="text-lg font-semibold mb-1">{item.name}</h3>
+                  <p className="text-gray-600 mb-2 text-sm truncate" title={item.description || 'No description'}>
+                    {item.description || 'No description'}
+                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xl font-bold text-primary-600">
+                      ${price.toFixed(2)}
+                    </span>
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {isAvailable ? 'Available' : 'Unavailable'}
+                    </span>
+                  </div>
+                  {item.category && (
+                    <span className="inline-block mb-3 px-2 py-1 text-gray-600 text-xs rounded">
+                      {item.category}
+                    </span>
+                  )}
+                  <div className="flex space-x-2">
+                    <button onClick={() => handleEdit(item)} className="btn-secondary flex-1 text-sm py-1.5">
+                      Edit
+                    </button>
+                    <button onClick={() => handleDelete(itemId)} className="btn-secondary bg-red-500 hover:bg-red-600 text-white flex-1 text-sm py-1.5">
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             );

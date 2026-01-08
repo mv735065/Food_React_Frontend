@@ -43,7 +43,7 @@ const CreateRestaurant = () => {
       // Prepare data - only include fields that have values
       const restaurantData = {
         name: formData.name.trim(),
-        cuisine: formData.cuisine.trim(),
+        cuisineType: formData.cuisine.trim(), // Backend expects cuisineType
         address: formData.address.trim(),
         owner: ownerId, // Include owner ID
       };
@@ -53,10 +53,10 @@ const CreateRestaurant = () => {
         restaurantData.description = formData.description.trim();
       }
       if (formData.image.trim()) {
-        restaurantData.image = formData.image.trim();
+        restaurantData.imageUrl = formData.image.trim(); // Backend expects imageUrl
       }
       if (formData.phone.trim()) {
-        restaurantData.phone = formData.phone.trim();
+        restaurantData.phoneNumber = formData.phone.trim(); // Backend expects phoneNumber
       }
 
       console.log('Creating restaurant with data:', restaurantData);

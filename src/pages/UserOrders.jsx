@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { orderAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { getSocket } from '../services/socket';
 import OrderCard from '../components/OrderCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -10,14 +11,9 @@ const UserOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const fetchOrdersRef = useRef(null);
 
-  useEffect(() => {
-    if (user) {
-      fetchOrders();
-    }
-  }, [user]);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     if (!user) {
       setError('User not logged in');
       return;
@@ -46,7 +42,73 @@ const UserOrders = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  // Update ref whenever fetchOrders changes
+  useEffect(() => {
+    fetchOrdersRef.current = fetchOrders;
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    if (user) {
+      fetchOrders();
+    }
+
+    // Listen for order updates via socket
+    const socket = getSocket();
+    if (socket) {
+      const handleOrderUpdate = (data) => {
+        console.log('Order update received in UserOrders:', data);
+        const order = data.order || data;
+        const orderId = order.id || order._id || data.orderId;
+        const status = order.status || data.status;
+        const riderId = order.riderId || data.riderId;
+        const rider = order.rider || data.rider;
+
+        // Optimistically update the order in the list
+        if (orderId) {
+          setOrders(prevOrders => 
+            prevOrders.map(o => {
+              const oId = o.id || o._id;
+              if (oId === orderId) {
+                return {
+                  ...o,
+                  status: status || o.status,
+                  riderId: riderId !== undefined ? riderId : o.riderId,
+                  rider: rider || o.rider
+                };
+              }
+              return o;
+            })
+          );
+        } else {
+          // If no order ID, refresh all orders
+          if (fetchOrdersRef.current) {
+            fetchOrdersRef.current();
+          }
+        }
+      };
+
+      const handleRiderAssigned = (data) => {
+        console.log('Rider assigned event received:', data);
+        if (fetchOrdersRef.current) {
+          fetchOrdersRef.current();
+        }
+      };
+
+      socket.on('order_update', handleOrderUpdate);
+      socket.on('order_assigned', handleRiderAssigned);
+      socket.on('rider_update', handleRiderAssigned);
+      socket.on('status_update', handleOrderUpdate);
+
+      return () => {
+        socket.off('order_update', handleOrderUpdate);
+        socket.off('order_assigned', handleRiderAssigned);
+        socket.off('rider_update', handleRiderAssigned);
+        socket.off('status_update', handleOrderUpdate);
+      };
+    }
+  }, [user, fetchOrders]);
 
   if (loading) {
     return (

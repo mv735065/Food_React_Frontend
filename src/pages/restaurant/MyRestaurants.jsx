@@ -70,7 +70,7 @@ const MyRestaurants = () => {
           {restaurants.map((restaurant) => {
             const restaurantId = restaurant.id || restaurant._id;
             const imageUrl =
-              restaurant.image || 'https://placehold.co/600x400?text=Restaurant';
+              restaurant.imageUrl || 'https://placehold.co/600x400?text=Restaurant';
 
             return (
               <div

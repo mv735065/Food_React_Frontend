@@ -8,22 +8,37 @@ const MenuCard = ({ item, restaurantId }) => {
   };
 
   const price = typeof item.price === 'number' ? item.price : parseFloat(item.price || 0);
-  const imageUrl = item.image || item.imageUrl;
+  
+  // Get image URL - check for valid non-empty strings
+  const getImageUrl = () => {
+    const img = item.image || item.imageUrl;
+    if (img && typeof img === 'string' && img.trim() !== '') {
+      return img.trim();
+    }
+    // Fallback to placeholder with item name
+    return `https://placehold.co/600x400?text=${encodeURIComponent(item.name || 'Menu Item')}`;
+  };
+  
+  const imageUrl = getImageUrl();
+
+  const description = item.description || 'No description';
 
   return (
-    <div className="card hover:shadow-lg transition-shadow">
-      {imageUrl && (
-        <img
-          src={imageUrl}
-          alt={item.name}
-          className="w-full h-48 object-cover rounded-t-lg"
-        />
-      )}
-      <div className="p-4">
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <img
+        src={imageUrl}
+        alt={item.name}
+        className="w-full h-48 object-cover rounded-t-lg"
+        onError={(e) => {
+          // If image fails to load, use placeholder
+          e.target.src = `https://placehold.co/600x400?text=${encodeURIComponent(item.name || 'Menu Item')}`;
+        }}
+      />
+      <div className="p-2 m-2">
         <h3 className="text-xl font-semibold mb-2">{item.name}</h3>
-        {item.description && (
-          <p className="text-gray-600 mb-3 text-sm line-clamp-2">{item.description}</p>
-        )}
+        <p className="text-gray-600 mb-2 text-sm truncate" title={item.description || 'No description'}>
+                    {item.description || 'No description'}
+                  </p>
         <div className="flex items-center justify-between">
           <span className="text-2xl font-bold text-primary-600">
             ${price.toFixed(2)}

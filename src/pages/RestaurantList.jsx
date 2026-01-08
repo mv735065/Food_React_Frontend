@@ -78,9 +78,9 @@ const RestaurantList = () => {
               to={`/restaurants/${restaurant.id || restaurant._id}`}
               className="card hover:shadow-xl transition-shadow block"
             >
-              {restaurant.image && (
+              {restaurant.imageUrl && (
                 <img
-                  src={restaurant.image}
+                  src={restaurant.imageUrl}
                   alt={restaurant.name}
                   className="w-full h-48 object-cover rounded-t-lg mb-4"
                 />

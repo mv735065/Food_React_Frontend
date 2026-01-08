@@ -371,13 +371,22 @@ const RiderOrders = () => {
     return status === 'READY_FOR_PICKUP' && !o.riderId;
   });
   
-  // My orders are those assigned to this rider (have riderId matching current user)
+  // My orders are ALL orders assigned to this rider (complete history including delivered and cancelled)
   const myOrders = orders.filter((o) => {
+    if (!user?.id) return false;
+    const oRiderId = o.riderId || o.rider?.id;
+    return oRiderId === user.id; // Show all orders assigned to this rider
+  });
+  
+  // Separate active orders from completed orders for display
+  const activeOrders = myOrders.filter((o) => {
     const status = (o.status || '').toUpperCase();
-    return o.riderId && 
-           status !== 'DELIVERED' && 
-           status !== 'CANCELLED' &&
-           (status === 'OUT_FOR_DELIVERY' || status === 'READY_FOR_PICKUP');
+    return status !== 'DELIVERED' && status !== 'CANCELLED';
+  });
+  
+  const completedOrders = myOrders.filter((o) => {
+    const status = (o.status || '').toUpperCase();
+    return status === 'DELIVERED' || status === 'CANCELLED';
   });
 
   if (loading) {
@@ -592,18 +601,18 @@ const RiderOrders = () => {
         </div>
       )}
       
-      {availableOrders.length === 0 && myOrders.length === 0 && (
+      {availableOrders.length === 0 && activeOrders.length === 0 && completedOrders.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">No orders available.</p>
         </div>
       )}
 
-      {/* My Orders */}
-      {myOrders.length > 0 && (
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">My Orders</h2>
+      {/* Active Orders */}
+      {activeOrders.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4">Active Orders</h2>
           <div className="space-y-4">
-            {myOrders.map((order) => {
+            {activeOrders.map((order) => {
               const orderId = order.id || order._id;
               const status = (order.status || '').toUpperCase();
               const totalAmount = typeof order.totalAmount === 'string' 
@@ -663,6 +672,59 @@ const RiderOrders = () => {
                       Mark as Delivered
                     </button>
                   )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Completed Orders (History) */}
+      {completedOrders.length > 0 && (
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">Order History</h2>
+          <div className="space-y-4">
+            {completedOrders.map((order) => {
+              const orderId = order.id || order._id;
+              const status = (order.status || '').toUpperCase();
+              const totalAmount = typeof order.totalAmount === 'string' 
+                ? parseFloat(order.totalAmount) 
+                : (order.totalAmount || 0);
+              
+              const getStatusColor = (status) => {
+                const normalizedStatus = (status || '').toUpperCase();
+                if (normalizedStatus === 'DELIVERED') return 'bg-green-100 text-green-800';
+                if (normalizedStatus === 'CANCELLED') return 'bg-red-100 text-red-800';
+                return 'bg-gray-100 text-gray-800';
+              };
+              
+              return (
+                <div key={orderId} className="card opacity-90">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">Order #{orderId ? orderId.slice(-6) : 'N/A'}</h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Restaurant: {order.restaurant?.name || 'N/A'}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Delivery to: {order.deliveryAddress || 'N/A'}
+                      </p>
+                      {order.customer && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          Customer: {order.customer.name || order.customer.email || 'N/A'}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(order.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(status)}`}>
+                      {status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-medium">Total: ${totalAmount.toFixed(2)}</p>
+                  </div>
                 </div>
               );
             })}
