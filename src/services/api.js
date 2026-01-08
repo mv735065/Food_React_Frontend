@@ -1,0 +1,110 @@
+import axios from 'axios';
+
+// API Base URL from environment variable
+// In development, use relative URL to leverage Vite proxy (avoids CORS issues)
+// In production, use the full URL from env variable
+const API_BASE_URL = import.meta.env.PROD 
+  ? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api')
+  : '/api';
+
+// Create axios instance
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Request interceptor to add auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => {
+    // Log response for debugging (remove in production)
+    if (import.meta.env.DEV) {
+      console.log('API Response:', response.config.method?.toUpperCase(), response.config.url, response.data);
+    }
+    return response;
+  },
+  (error) => {
+    // Log error for debugging
+    console.error('API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    
+    if (error.response?.status === 401) {
+      // Unauthorized - clear token and redirect to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    
+    // Handle network errors (CORS, connection refused, etc.)
+    if (!error.response) {
+      console.error('Network error - backend may not be running or CORS issue');
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// API endpoints
+export const authAPI = {
+  login: (credentials) => api.post('/auth/login', credentials),
+  register: (data) => api.post('/auth/register', data),
+  logout: () => api.post('/auth/logout'),
+  getProfile: () => api.get('/auth/profile'),
+  updateProfile: (data) => api.put('/auth/profile', data),
+};
+
+export const restaurantAPI = {
+  getAll: () => api.get('/restaurants'),
+  getById: (id) => api.get(`/restaurants/${id}`),
+  getMenu: (restaurantId) => api.get(`/restaurants/${restaurantId}/menu`),
+  updateMenu: (restaurantId, menuData) => api.put(`/restaurants/${restaurantId}/menu`, menuData),
+  getOrders: (restaurantId) => api.get(`/restaurants/${restaurantId}/orders`),
+  updateOrderStatus: (orderId, status) => api.put(`/orders/${orderId}/status`, { status }),
+};
+
+export const orderAPI = {
+  create: (orderData) => api.post('/orders', orderData),
+  getAll: () => api.get('/orders'),
+  getById: (id) => api.get(`/orders/${id}`),
+  updateStatus: (id, status) => api.put(`/orders/${id}/status`, { status }),
+  getByUser: () => api.get('/orders/user'),
+};
+
+export const riderAPI = {
+  getAssignedOrders: () => api.get('/riders/orders'),
+  updateOrderStatus: (orderId, status) => api.put(`/orders/${orderId}/status`, { status }),
+  acceptOrder: (orderId) => api.post(`/orders/${orderId}/accept`),
+};
+
+export const adminAPI = {
+  getUsers: () => api.get('/admin/users'),
+  updateUser: (userId, data) => api.put(`/admin/users/${userId}`, data),
+  deleteUser: (userId) => api.delete(`/admin/users/${userId}`),
+  getRestaurants: () => api.get('/admin/restaurants'),
+  createRestaurant: (data) => api.post('/admin/restaurants', data),
+  updateRestaurant: (restaurantId, data) => api.put(`/admin/restaurants/${restaurantId}`, data),
+  deleteRestaurant: (restaurantId) => api.delete(`/admin/restaurants/${restaurantId}`),
+  getAllOrders: () => api.get('/admin/orders'),
+};
+
+export default api;
