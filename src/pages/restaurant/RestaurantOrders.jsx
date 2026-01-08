@@ -63,12 +63,28 @@ const RestaurantOrders = () => {
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    // Optimistic update - update state immediately
+    setOrders(prevOrders => 
+      prevOrders.map(order => {
+        const oId = order.id || order._id;
+        if (oId === orderId) {
+          return { ...order, status: newStatus };
+        }
+        return order;
+      })
+    );
+
     try {
       await orderAPI.updateStatus(orderId, newStatus);
       setToast({ message: 'Order status updated successfully', type: 'success' });
+      
+      // Refresh from backend to ensure consistency
       fetchOrders();
     } catch (error) {
-      setToast({ message: 'Failed to update order status', type: 'error' });
+      // Revert optimistic update on error
+      fetchOrders();
+      const errorMessage = error.response?.data?.message || 'Failed to update order status';
+      setToast({ message: errorMessage, type: 'error' });
     }
   };
 

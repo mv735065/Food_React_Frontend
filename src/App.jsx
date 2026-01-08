@@ -26,6 +26,7 @@ import ManageMenu from './pages/restaurant/ManageMenu';
 import RestaurantOrders from './pages/restaurant/RestaurantOrders';
 import MyRestaurants from './pages/restaurant/MyRestaurants';
 import CreateRestaurant from './pages/restaurant/CreateRestaurant';
+import AllRestaurantOrders from './pages/restaurant/AllRestaurantOrders';
 
 // Rider Pages
 import RiderDashboard from './pages/rider/RiderDashboard';
@@ -102,6 +103,14 @@ function App() {
                     element={
                       <ProtectedRoute requiredRole="RESTAURANT">
                         <MyRestaurants />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/restaurant/all-orders"
+                    element={
+                      <ProtectedRoute requiredRole="RESTAURANT">
+                        <AllRestaurantOrders />
                       </ProtectedRoute>
                     }
                   />

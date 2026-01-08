@@ -97,6 +97,12 @@ const AvailableOrders = () => {
       return;
     }
 
+    // Optimistic update - remove order from available list immediately
+    setOrders(prevOrders => prevOrders.filter(order => {
+      const oId = order.id || order._id;
+      return oId !== orderId;
+    }));
+
     try {
       setAcceptingOrderId(orderId);
       
@@ -113,10 +119,12 @@ const AvailableOrders = () => {
         type: 'success' 
       });
       
-      // Refresh the list
+      // Refresh the list to ensure consistency
       fetchAvailableOrders();
     } catch (error) {
       console.error('Failed to accept order:', error);
+      // Revert optimistic update on error - refresh to get correct state
+      fetchAvailableOrders();
       const errorMessage = error.response?.data?.message || 'Failed to accept order';
       setToast({ message: errorMessage, type: 'error' });
     } finally {

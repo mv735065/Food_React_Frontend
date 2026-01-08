@@ -68,6 +68,9 @@ const Navbar = () => {
                     <Link to="/restaurant/my-restaurants" className="text-gray-700 hover:text-primary-600">
                       My Restaurants
                     </Link>
+                    <Link to="/restaurant/all-orders" className="text-gray-700 hover:text-primary-600">
+                      All Orders
+                    </Link>
                   </>
                 )}
 

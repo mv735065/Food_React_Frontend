@@ -282,6 +282,22 @@ const RiderOrders = () => {
       return;
     }
 
+    // Optimistic update - update state immediately
+    setOrders(prevOrders => 
+      prevOrders.map(order => {
+        const oId = order.id || order._id;
+        if (oId === orderId) {
+          return { 
+            ...order, 
+            status: 'OUT_FOR_DELIVERY',
+            riderId: user.id,
+            rider: { id: user.id, name: user.name, email: user.email }
+          };
+        }
+        return order;
+      })
+    );
+
     try {
       setLoading(true);
       
@@ -300,9 +316,17 @@ const RiderOrders = () => {
       setNewOrderModal(null); // Close modal
       // Remove from modal shown set since order is now accepted
       modalShownRef.current.delete(orderId);
-      fetchOrders(); // Refresh orders list
+      
+      // Refresh from backend to ensure consistency
+      if (fetchOrdersRef.current) {
+        await fetchOrdersRef.current();
+      }
     } catch (error) {
       console.error('Failed to accept order:', error);
+      // Revert optimistic update on error
+      if (fetchOrdersRef.current) {
+        await fetchOrdersRef.current();
+      }
       const errorMessage = error.response?.data?.message || 'Failed to accept order';
       setToast({ message: errorMessage, type: 'error' });
     } finally {
@@ -311,14 +335,30 @@ const RiderOrders = () => {
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
+    // Optimistic update - update state immediately
+    setOrders(prevOrders => 
+      prevOrders.map(order => {
+        const oId = order.id || order._id;
+        if (oId === orderId) {
+          return { ...order, status: newStatus };
+        }
+        return order;
+      })
+    );
+
     try {
       await riderAPI.updateOrderStatus(orderId, newStatus);
       setToast({ message: 'Order status updated successfully', type: 'success' });
-      // Refresh orders list to get updated status
+      
+      // Refresh from backend to ensure consistency
       if (fetchOrdersRef.current) {
         await fetchOrdersRef.current();
       }
     } catch (error) {
+      // Revert optimistic update on error
+      if (fetchOrdersRef.current) {
+        await fetchOrdersRef.current();
+      }
       const errorMessage = error.response?.data?.message || 'Failed to update order status';
       setToast({ message: errorMessage, type: 'error' });
     }
