@@ -110,39 +110,125 @@ const UserOrders = () => {
     }
   }, [user, fetchOrders]);
 
+  // Group orders by status
+  const groupedOrders = {
+    active: orders.filter((o) => {
+      const status = (o.status || '').toUpperCase();
+      return !['DELIVERED', 'CANCELLED', 'CANCELED'].includes(status);
+    }),
+    completed: orders.filter((o) => {
+      const status = (o.status || '').toUpperCase();
+      return ['DELIVERED', 'CANCELLED', 'CANCELED'].includes(status);
+    }),
+  };
+
+  // Sort orders by date (newest first)
+  const sortByDate = (ordersList) => {
+    return [...ordersList].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
+      return dateB - dateA;
+    });
+  };
+
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-12">
-        <LoadingSpinner size="lg" className="min-h-[400px]" />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-primary-50 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">My Orders</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-primary-50">
+      {/* Hero Section */}
+      <div className="bg-gradient-to-r from-primary-600 via-primary-500 to-primary-700 text-white py-12 mb-8 shadow-lg">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-bold mb-2">📦 My Orders</h1>
+              <p className="text-xl text-primary-100">
+                Track all your food orders in one place
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
+                <div className="text-sm text-primary-100">Total Orders</div>
+                <div className="text-2xl font-bold">{orders.length}</div>
+              </div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
+                <div className="text-sm text-primary-100">Active</div>
+                <div className="text-2xl font-bold">{groupedOrders.active.length}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
+      <div className="container mx-auto px-4 pb-12">
+        {error && (
+          <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 shadow-md">
+            {error}
+          </div>
+        )}
 
-      {orders.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg mb-4">You haven't placed any orders yet.</p>
-          <Link to="/restaurants" className="btn-primary">
-            Browse Restaurants
-          </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {orders.map((order) => {
-            const orderId = order.id || order._id;
-            return <OrderCard key={orderId} order={order} />;
-          })}
-        </div>
-      )}
+        {orders.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-6xl mb-4">🍽️</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">No Orders Yet</h2>
+            <p className="text-gray-500 text-lg mb-6">Start ordering from your favorite restaurants!</p>
+            <Link 
+              to="/restaurants" 
+              className="inline-flex items-center px-6 py-3 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Browse Restaurants
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Active Orders Section */}
+            {groupedOrders.active.length > 0 && (
+              <div>
+                <div className="flex items-center mb-4">
+                  <div className="w-1 h-8 bg-primary-600 rounded-full mr-3"></div>
+                  <h2 className="text-2xl font-bold text-gray-800">Active Orders</h2>
+                  <span className="ml-3 px-3 py-1 bg-primary-100 text-primary-800 rounded-full text-sm font-semibold">
+                    {groupedOrders.active.length}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {sortByDate(groupedOrders.active).map((order) => {
+                    const orderId = order.id || order._id;
+                    return <OrderCard key={orderId} order={order} />;
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Completed Orders Section */}
+            {groupedOrders.completed.length > 0 && (
+              <div>
+                <div className="flex items-center mb-4">
+                  <div className="w-1 h-8 bg-gray-400 rounded-full mr-3"></div>
+                  <h2 className="text-2xl font-bold text-gray-800">Order History</h2>
+                  <span className="ml-3 px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-semibold">
+                    {groupedOrders.completed.length}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {sortByDate(groupedOrders.completed).map((order) => {
+                    const orderId = order.id || order._id;
+                    return <OrderCard key={orderId} order={order} />;
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -96,12 +96,14 @@ export const CartProvider = ({ children }) => {
   };
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  const distinctItems = items.length; // Count of distinct/unique items
   const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const value = {
     items,
     restaurantId,
     totalItems,
+    distinctItems,
     totalPrice,
     addItem,
     removeItem,
