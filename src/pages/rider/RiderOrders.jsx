@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { riderAPI, orderAPI } from '../../services/api';
 import { getSocket } from '../../services/socket';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,87 +12,107 @@ const RiderOrders = () => {
   const [toast, setToast] = useState(null);
   const [newOrderModal, setNewOrderModal] = useState(null); // { order: {...}, isOpen: true }
   const { user } = useAuth();
+  const ordersRef = useRef([]); // Ref to track current orders without causing re-renders
+  const modalShownRef = useRef(new Set()); // Track which order modals have been shown
 
+  // Update ref whenever orders change
   useEffect(() => {
-    fetchOrders();
-
-    // Listen for order assignments and new orders ready for pickup via socket
-    const socket = getSocket();
-    if (socket) {
-      // Handle when order is assigned to this rider
-      const handleNewAssignment = (data) => {
-        const orderId = data.orderId || data.id || data.order?.id || data.order?._id;
-        setToast({ message: `New order assigned: #${orderId ? orderId.slice(-6) : 'N/A'}`, type: 'info' });
-        fetchOrders();
-      };
-
-      // Handle when a new order is ready for pickup (available for riders)
-      const handleNewOrderReady = (data) => {
-        console.log('New order ready for pickup:', data);
-        const order = data.order || data;
-        const orderId = order.id || order._id;
-        
-        // Check if this order is already assigned or in our list
-        const isAlreadyAssigned = orders.some(o => (o.id || o._id) === orderId);
-        
-        if (!isAlreadyAssigned && order.status === 'READY_FOR_PICKUP' && !order.riderId) {
-          // Show popup modal for accepting the order
-          setNewOrderModal({ order, isOpen: true });
-        }
-        
-        // Refresh orders list
-        fetchOrders();
-      };
-
-      // Handle order status updates - check if order becomes ready for pickup
-      const handleOrderUpdate = (data) => {
-        console.log('Order update received:', data);
-        const order = data.order || data;
-        const status = (order.status || data.status || '').toUpperCase();
-        const orderId = order.id || order._id || data.orderId;
-        
-        // If order status is READY_FOR_PICKUP and not assigned, show modal
-        if (status === 'READY_FOR_PICKUP' && !order.riderId && !data.riderId) {
-          const isAlreadyAssigned = orders.some(o => (o.id || o._id) === orderId);
-          if (!isAlreadyAssigned) {
-            setNewOrderModal({ order, isOpen: true });
-          }
-        }
-        
-        fetchOrders();
-      };
-
-      socket.on('order_assigned', handleNewAssignment);
-      socket.on('order_update', handleOrderUpdate);
-      socket.on('new_order_ready', handleNewOrderReady); // Backend emits this when order is ready
-      socket.on('order_ready_for_pickup', handleNewOrderReady); // Alternative event name
-
-      return () => {
-        socket.off('order_assigned', handleNewAssignment);
-        socket.off('order_update', handleOrderUpdate);
-        socket.off('new_order_ready', handleNewOrderReady);
-        socket.off('order_ready_for_pickup', handleNewOrderReady);
-      };
-    }
+    ordersRef.current = orders;
   }, [orders]);
 
-  const fetchOrders = async () => {
+  // Function to check for orders ready for pickup and show modal
+  const checkAndShowReadyOrders = useCallback(async (ordersList) => {
+    for (const order of ordersList) {
+      const orderId = order.id || order._id;
+      const status = (order.status || '').toUpperCase();
+      const hasModalBeenShown = modalShownRef.current.has(orderId);
+      
+      if (status === 'READY_FOR_PICKUP' && !order.riderId && !hasModalBeenShown && orderId) {
+        console.log('Found order ready for pickup:', orderId);
+        // Mark modal as shown for this order
+        modalShownRef.current.add(orderId);
+        
+        // Fetch full order details to get complete restaurant information
+        try {
+          const fullOrderResponse = await orderAPI.getById(orderId);
+          const fullResponseData = fullOrderResponse.data?.data || fullOrderResponse.data;
+          const fullOrder = fullResponseData?.order || fullResponseData || order;
+          
+          console.log('Showing modal for ready order:', fullOrder);
+          setNewOrderModal({ order: fullOrder, isOpen: true });
+          setToast({ 
+            message: `New order #${orderId.slice(-6)} is ready for pickup!`, 
+            type: 'info' 
+          });
+          break; // Only show one modal at a time
+        } catch (error) {
+          console.error('Failed to fetch full order details:', error);
+          // Fallback to using the order data from the list
+          setNewOrderModal({ order, isOpen: true });
+          setToast({ 
+            message: `New order #${orderId.slice(-6)} is ready for pickup!`, 
+            type: 'info' 
+          });
+          break; // Only show one modal at a time
+        }
+      }
+    }
+  }, []);
+
+  // Memoize fetchOrders to avoid recreating it
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await riderAPI.getAssignedOrders();
       
-      console.log('Rider orders API response:', response.data);
+      // Fetch both assigned orders and orders ready for pickup
+      // The backend /orders endpoint for RIDER role returns:
+      // - Orders assigned to this rider (riderId = user.id)
+      // - Orders with status READY_FOR_PICKUP that are not yet assigned
+      const response = await orderAPI.getAll(null, 'READY_FOR_PICKUP');
+      
+      console.log('Rider orders API response (READY_FOR_PICKUP):', response.data);
+      
+      // Also fetch assigned orders to get all orders for this rider
+      const assignedResponse = await riderAPI.getAssignedOrders();
+      console.log('Rider assigned orders API response:', assignedResponse.data);
       
       // Handle nested response structure: { status: "success", data: { orders: [...] } }
       const responseData = response.data?.data || response.data;
-      const ordersList = Array.isArray(responseData?.orders) 
+      const readyOrders = Array.isArray(responseData?.orders) 
         ? responseData.orders 
         : Array.isArray(responseData) 
           ? responseData 
           : [];
       
-      console.log('Parsed rider orders:', ordersList);
+      const assignedData = assignedResponse.data?.data || assignedResponse.data;
+      const assignedOrders = Array.isArray(assignedData?.orders) 
+        ? assignedData.orders 
+        : Array.isArray(assignedData) 
+          ? assignedData 
+          : [];
+      
+      // Combine both lists, removing duplicates
+      const allOrdersMap = new Map();
+      
+      // Add assigned orders first
+      assignedOrders.forEach(order => {
+        const orderId = order.id || order._id;
+        if (orderId) allOrdersMap.set(orderId, order);
+      });
+      
+      // Add ready orders (will overwrite if duplicate, but that's fine)
+      readyOrders.forEach(order => {
+        const orderId = order.id || order._id;
+        if (orderId) allOrdersMap.set(orderId, order);
+      });
+      
+      const ordersList = Array.from(allOrdersMap.values());
+      
+      console.log('Combined rider orders:', ordersList);
       setOrders(ordersList);
+      
+      // Check for orders that are ready for pickup and show modal if not already shown
+      await checkAndShowReadyOrders(ordersList);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
       const errorMessage = error.response?.data?.message || 'Failed to load orders';
@@ -100,7 +120,153 @@ const RiderOrders = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [checkAndShowReadyOrders]);
+
+  useEffect(() => {
+    fetchOrders();
+
+    // Set up polling to check for orders ready for pickup every 5 seconds
+    const pollInterval = setInterval(() => {
+      console.log('Polling for orders ready for pickup...');
+      fetchOrders();
+    }, 5000); // Poll every 5 seconds
+
+    // Listen for order assignments and new orders ready for pickup via socket
+    const socket = getSocket();
+    if (socket) {
+      console.log('Socket connected, setting up listeners');
+      
+      // Handle when order is assigned to this rider
+      const handleNewAssignment = (data) => {
+        console.log('Order assigned event received:', data);
+        const orderId = data.orderId || data.id || data.order?.id || data.order?._id;
+        setToast({ message: `New order assigned: #${orderId ? orderId.slice(-6) : 'N/A'}`, type: 'info' });
+        fetchOrders();
+      };
+
+      // Handle when a new order is ready for pickup (available for riders)
+      const handleNewOrderReady = async (data) => {
+        console.log('New order ready event received:', data);
+        const order = data.order || data;
+        const orderId = order.id || order._id;
+        const status = (order.status || '').toUpperCase();
+        
+        console.log('Order status:', status, 'Order ID:', orderId, 'Rider ID:', order.riderId);
+        
+        // Check if this order is already assigned or in our list using ref
+        const isAlreadyAssigned = ordersRef.current.some(o => (o.id || o._id) === orderId);
+        const hasModalBeenShown = modalShownRef.current.has(orderId);
+        
+        if (!isAlreadyAssigned && !hasModalBeenShown && status === 'READY_FOR_PICKUP' && !order.riderId && orderId) {
+          console.log('Showing modal for new ready order via socket');
+          // Mark modal as shown for this order
+          modalShownRef.current.add(orderId);
+          
+          // Fetch full order details to get complete restaurant information
+          try {
+            const fullOrderResponse = await orderAPI.getById(orderId);
+            const responseData = fullOrderResponse.data?.data || fullOrderResponse.data;
+            const fullOrder = responseData?.order || responseData || order;
+            
+            console.log('Full order details for modal:', fullOrder);
+            setNewOrderModal({ order: fullOrder, isOpen: true });
+            setToast({ 
+              message: `New order #${orderId.slice(-6)} is ready for pickup!`, 
+              type: 'info' 
+            });
+          } catch (error) {
+            console.error('Failed to fetch full order details:', error);
+            // Fallback to using the order data from the socket event
+            setNewOrderModal({ order, isOpen: true });
+            setToast({ 
+              message: `New order #${orderId.slice(-6)} is ready for pickup!`, 
+              type: 'info' 
+            });
+          }
+        }
+        
+        // Refresh orders list
+        fetchOrders();
+      };
+
+      // Handle order status updates - check if order becomes ready for pickup
+      const handleOrderUpdate = async (data) => {
+        console.log('Order update event received:', data);
+        const order = data.order || data;
+        const status = (order.status || data.status || '').toUpperCase();
+        const orderId = order.id || order._id || data.orderId;
+        
+        console.log('Order update - Status:', status, 'Order ID:', orderId, 'Rider ID:', order.riderId || data.riderId);
+        
+        // If order status is READY_FOR_PICKUP and not assigned, show modal
+        if (status === 'READY_FOR_PICKUP' && !order.riderId && !data.riderId) {
+          // Check using ref to avoid dependency on orders state
+          const isAlreadyAssigned = ordersRef.current.some(o => (o.id || o._id) === orderId);
+          const hasModalBeenShown = modalShownRef.current.has(orderId);
+          
+          if (!isAlreadyAssigned && !hasModalBeenShown && orderId) {
+            console.log('Showing modal for order update via socket');
+            // Mark modal as shown for this order
+            modalShownRef.current.add(orderId);
+            
+            // Fetch full order details to get complete restaurant information
+            try {
+              const fullOrderResponse = await orderAPI.getById(orderId);
+              const responseData = fullOrderResponse.data?.data || fullOrderResponse.data;
+              const fullOrder = responseData?.order || responseData || order;
+              
+              console.log('Full order details for modal:', fullOrder);
+              setNewOrderModal({ order: fullOrder, isOpen: true });
+              setToast({ 
+                message: `New order #${orderId.slice(-6)} is ready for pickup!`, 
+                type: 'info' 
+              });
+            } catch (error) {
+              console.error('Failed to fetch full order details:', error);
+              // Fallback to using the order data from the socket event
+              setNewOrderModal({ order, isOpen: true });
+              setToast({ 
+                message: `New order #${orderId.slice(-6)} is ready for pickup!`, 
+                type: 'info' 
+              });
+            }
+          }
+        }
+        
+        fetchOrders();
+      };
+
+      // Listen to all possible socket events
+      socket.on('order_assigned', handleNewAssignment);
+      socket.on('order_update', handleOrderUpdate);
+      socket.on('new_order_ready', handleNewOrderReady);
+      socket.on('order_ready_for_pickup', handleNewOrderReady);
+      socket.on('new_order', handleNewOrderReady); // Also listen to new_order event
+      socket.on('notification', (data) => {
+        console.log('Notification received:', data);
+        if (data.type === 'order_ready' || data.message?.includes('ready')) {
+          fetchOrders();
+        }
+      });
+
+      return () => {
+        clearInterval(pollInterval);
+        socket.off('order_assigned', handleNewAssignment);
+        socket.off('order_update', handleOrderUpdate);
+        socket.off('new_order_ready', handleNewOrderReady);
+        socket.off('order_ready_for_pickup', handleNewOrderReady);
+        socket.off('new_order', handleNewOrderReady);
+        socket.off('notification');
+      };
+    } else {
+      console.warn('Socket not available, using polling only');
+      return () => {
+        clearInterval(pollInterval);
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once on mount
+
 
   // Accept order by assigning current rider to it
   const acceptOrder = async (orderId) => {
@@ -118,6 +284,8 @@ const RiderOrders = () => {
         type: 'success' 
       });
       setNewOrderModal(null); // Close modal
+      // Remove from modal shown set since order is now accepted
+      modalShownRef.current.delete(orderId);
       fetchOrders(); // Refresh orders list
     } catch (error) {
       console.error('Failed to accept order:', error);
@@ -201,11 +369,23 @@ const RiderOrders = () => {
                     </div>
 
                     {order.restaurant && (
-                      <div>
-                        <p className="text-sm text-gray-600">Restaurant</p>
-                        <p className="font-medium">{order.restaurant.name || 'N/A'}</p>
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <p className="text-sm font-semibold text-gray-700 mb-2">📍 Restaurant Details</p>
+                        <p className="font-bold text-lg text-gray-900">{order.restaurant.name || 'N/A'}</p>
                         {order.restaurant.address && (
-                          <p className="text-sm text-gray-500">{order.restaurant.address}</p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            <span className="font-medium">Address:</span> {order.restaurant.address}
+                          </p>
+                        )}
+                        {order.restaurant.phoneNumber && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            <span className="font-medium">Phone:</span> {order.restaurant.phoneNumber}
+                          </p>
+                        )}
+                        {order.restaurant.cuisineType && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            <span className="font-medium">Cuisine:</span> {order.restaurant.cuisineType}
+                          </p>
                         )}
                       </div>
                     )}
