@@ -30,6 +30,7 @@ import CreateRestaurant from './pages/restaurant/CreateRestaurant';
 // Rider Pages
 import RiderDashboard from './pages/rider/RiderDashboard';
 import RiderOrders from './pages/rider/RiderOrders';
+import AvailableOrders from './pages/rider/AvailableOrders';
 
 // Admin Pages
 import ManageUsers from './pages/admin/ManageUsers';
@@ -143,6 +144,14 @@ function App() {
                     element={
                       <ProtectedRoute requiredRole="RIDER">
                         <RiderDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/rider/available-orders"
+                    element={
+                      <ProtectedRoute requiredRole="RIDER">
+                        <AvailableOrders />
                       </ProtectedRoute>
                     }
                   />

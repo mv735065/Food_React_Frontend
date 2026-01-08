@@ -125,12 +125,6 @@ const RiderOrders = () => {
   useEffect(() => {
     fetchOrders();
 
-    // Set up polling to check for orders ready for pickup every 5 seconds
-    const pollInterval = setInterval(() => {
-      console.log('Polling for orders ready for pickup...');
-      fetchOrders();
-    }, 5000); // Poll every 5 seconds
-
     // Listen for order assignments and new orders ready for pickup via socket
     const socket = getSocket();
     if (socket) {
@@ -250,7 +244,6 @@ const RiderOrders = () => {
       });
 
       return () => {
-        clearInterval(pollInterval);
         socket.off('order_assigned', handleNewAssignment);
         socket.off('order_update', handleOrderUpdate);
         socket.off('new_order_ready', handleNewOrderReady);
@@ -258,17 +251,12 @@ const RiderOrders = () => {
         socket.off('new_order', handleNewOrderReady);
         socket.off('notification');
       };
-    } else {
-      console.warn('Socket not available, using polling only');
-      return () => {
-        clearInterval(pollInterval);
-      };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array - only run once on mount
 
 
-  // Accept order by assigning current rider to it
+  // Accept order by assigning current rider to it and update status to OUT_FOR_DELIVERY
   const acceptOrder = async (orderId) => {
     if (!user?.id) {
       setToast({ message: 'User not authenticated', type: 'error' });
@@ -277,10 +265,17 @@ const RiderOrders = () => {
 
     try {
       setLoading(true);
-      // Use assignRider API to accept the order
+      
+      // Step 1: Assign rider to the order
       await orderAPI.assignRider(orderId, user.id);
+      console.log('Rider assigned to order:', orderId);
+      
+      // Step 2: Update order status to OUT_FOR_DELIVERY
+      await orderAPI.updateStatus(orderId, 'OUT_FOR_DELIVERY');
+      console.log('Order status updated to OUT_FOR_DELIVERY');
+      
       setToast({ 
-        message: 'Order accepted successfully! User will be notified.', 
+        message: 'Order accepted successfully! Status updated to Out for Delivery.', 
         type: 'success' 
       });
       setNewOrderModal(null); // Close modal
@@ -461,7 +456,29 @@ const RiderOrders = () => {
         </Modal>
       )}
 
-      <h1 className="text-3xl font-bold mb-8">Assigned Orders</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold">Assigned Orders</h1>
+        <button
+          onClick={fetchOrders}
+          disabled={loading}
+          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          <svg
+            className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+          <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+        </button>
+      </div>
 
       {/* Available Orders */}
       {availableOrders.length > 0 && (

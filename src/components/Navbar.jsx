@@ -76,6 +76,9 @@ const Navbar = () => {
                     <Link to="/rider/dashboard" className="text-gray-700 hover:text-primary-600">
                       Dashboard
                     </Link>
+                    <Link to="/rider/available-orders" className="text-gray-700 hover:text-primary-600">
+                      Available Orders
+                    </Link>
                     <Link to="/rider/orders" className="text-gray-700 hover:text-primary-600">
                       Assigned Orders
                     </Link>
