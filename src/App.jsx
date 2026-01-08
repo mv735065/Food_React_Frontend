@@ -43,9 +43,9 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <NotificationProvider>
-            <div className="flex flex-col min-h-screen">
+            <div className="flex flex-col">
               <Navbar />
-              <main className="flex-grow">
+              <main className="w-full min-h-screen">
                 <Routes>
                   {/* Public Routes */}
                   <Route path="/" element={<Home />} />
