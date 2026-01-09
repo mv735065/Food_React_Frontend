@@ -1,7 +1,20 @@
 import { io } from 'socket.io-client';
 
 // Socket.io Server URL from environment variable
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const getSocketUrl = () => {
+  const socketUrl = import.meta.env.VITE_SOCKET_URL;
+  if (import.meta.env.PROD && !socketUrl) {
+    console.error(
+      '⚠️ VITE_SOCKET_URL is not set! Please set it in your Vercel environment variables.\n' +
+      'Example: https://your-backend.onrender.com'
+    );
+    // Fallback for production if not set
+    return 'http://localhost:5000';
+  }
+  return socketUrl || 'http://localhost:5000';
+};
+
+const SOCKET_URL = getSocketUrl();
 
 let socket = null;
 

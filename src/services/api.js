@@ -3,9 +3,25 @@ import axios from 'axios';
 // API Base URL from environment variable
 // In development, use relative URL to leverage Vite proxy (avoids CORS issues)
 // In production, use the full URL from env variable
-const API_BASE_URL = import.meta.env.PROD 
-  ? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api')
-  : '/api';
+const getApiBaseUrl = () => {
+  if (import.meta.env.PROD) {
+    // Production: must use environment variable
+    const prodUrl = import.meta.env.VITE_API_BASE_URL;
+    if (!prodUrl) {
+      console.error(
+        '⚠️ VITE_API_BASE_URL is not set! Please set it in your Vercel environment variables.\n' +
+        'Example: https://your-backend.onrender.com/api'
+      );
+      // Still return a fallback, but log the error
+      return 'http://localhost:5000/api';
+    }
+    return prodUrl;
+  }
+  // Development: use proxy
+  return '/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Create axios instance
 const api = axios.create({
@@ -57,7 +73,22 @@ api.interceptors.response.use(
     
     // Handle network errors (CORS, connection refused, etc.)
     if (!error.response) {
-      console.error('Network error - backend may not be running or CORS issue');
+      const isCorsError = error.message?.includes('CORS') || 
+                         error.message?.includes('Network Error') ||
+                         error.code === 'ERR_NETWORK' ||
+                         (error.message?.includes('Failed to fetch') && !error.response);
+      
+      if (isCorsError) {
+        console.error(
+          '🚫 CORS Error: Your backend needs to allow requests from your frontend domain.\n' +
+          'Please configure CORS in your backend to include your Vercel URL.\n' +
+          `Frontend URL: ${window.location.origin}\n` +
+          `Backend URL: ${API_BASE_URL}\n` +
+          'See README.md for backend CORS configuration instructions.'
+        );
+      } else {
+        console.error('Network error - backend may not be running or unreachable');
+      }
     }
     
     return Promise.reject(error);

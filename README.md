@@ -210,7 +210,84 @@ npm run build
 
 2. Deploy the `dist/` folder (or connect your Git repository)
 
-3. Ensure CORS is configured on your backend to allow requests from your frontend domain
+3. **Configure CORS on your backend** (CRITICAL - see below)
+
+### Backend CORS Configuration
+
+The backend must allow requests from your Vercel frontend domain. Here's how to configure it:
+
+#### For Express.js Backend:
+
+```javascript
+const cors = require('cors');
+
+// Option 1: Allow specific origin (Recommended for production)
+app.use(cors({
+  origin: [
+    'https://your-frontend.vercel.app',  // Your Vercel frontend URL
+    'http://localhost:5173',              // For local development
+    'http://localhost:3000'               // Alternative local port
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Option 2: Allow all origins (NOT recommended for production, use only for testing)
+// app.use(cors());
+```
+
+#### For Render Backend:
+
+1. Go to your Render backend service dashboard
+2. Navigate to **Environment** tab
+3. Add environment variable:
+   - `FRONTEND_URL` = `https://your-frontend.vercel.app`
+4. Update your backend CORS configuration to use this environment variable:
+
+```javascript
+const cors = require('cors');
+
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'http://localhost:3000'
+].filter(Boolean); // Remove undefined values
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+```
+
+#### Common CORS Issues:
+
+1. **Missing credentials**: Make sure `credentials: true` is set if you're using cookies/auth tokens
+2. **Wrong origin**: Double-check your Vercel URL (it should be `https://your-app.vercel.app`)
+3. **Preflight requests**: Make sure OPTIONS method is allowed
+4. **Headers**: Ensure `Authorization` header is in `allowedHeaders`
+
+#### Verify CORS is Working:
+
+1. Open browser DevTools → Network tab
+2. Make an API request from your frontend
+3. Check the response headers - you should see:
+   - `Access-Control-Allow-Origin: https://your-frontend.vercel.app`
+   - `Access-Control-Allow-Credentials: true`
+   - `Access-Control-Allow-Methods: GET, POST, PUT, DELETE, ...`
+
+If you see CORS errors in the console, the backend CORS configuration needs to be updated.
 
 ## Notes
 
@@ -249,9 +326,15 @@ All API functions are in `src/services/api.js`. Modify as needed for your backen
 - Verify backend socket.io is running
 - Check browser console for connection errors
 
-**API calls failing:**
-- Verify `VITE_API_BASE_URL` is correct
-- Check CORS settings on backend
+**API calls failing / CORS errors:**
+- Verify `VITE_API_BASE_URL` is correct and matches your Render backend URL
+- **CORS Error**: Most common issue - your backend must allow your Vercel frontend URL
+  - Check browser console for the exact CORS error message
+  - Verify your backend CORS configuration includes your Vercel URL
+  - Example: If frontend is `https://myapp.vercel.app`, backend must allow this origin
+  - See "Backend CORS Configuration" section above for detailed setup
+- Check network tab in DevTools to see the actual request/response
+- Verify backend is running and accessible
 - Verify JWT token is being sent (check Network tab)
 
 **Build errors:**
