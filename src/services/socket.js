@@ -1,7 +1,17 @@
 import { io } from 'socket.io-client';
 
 // Socket.io Server URL from environment variable
+// Get socket URL at runtime (not at module load time) to ensure we always use the latest env var
 const getSocketUrl = () => {
+  // Debug: Log all environment variables related to socket
+  if (import.meta.env.PROD) {
+    console.log('🔍 Environment check (production):', {
+      VITE_SOCKET_URL: import.meta.env.VITE_SOCKET_URL || 'NOT SET',
+      PROD: import.meta.env.PROD,
+      MODE: import.meta.env.MODE
+    });
+  }
+  
   if (import.meta.env.PROD) {
     // Production: must use environment variable
     const socketUrl = import.meta.env.VITE_SOCKET_URL;
@@ -9,9 +19,19 @@ const getSocketUrl = () => {
       console.error(
         '⚠️ VITE_SOCKET_URL is not set! Please set it in your Vercel environment variables.\n' +
         'Example: https://your-backend.onrender.com\n' +
-        'Current URL will be invalid - socket will not connect!'
+        'Current URL will be invalid - socket will not connect!\n' +
+        '⚠️ IMPORTANT: After setting the variable in Vercel, you MUST redeploy for it to take effect!'
       );
       // Don't use localhost in production - it will fail
+      return null;
+    }
+    // Ensure we're not using localhost in production
+    if (socketUrl.includes('localhost') || socketUrl.includes('127.0.0.1')) {
+      console.error(
+        '❌ VITE_SOCKET_URL contains localhost in production! This will not work.\n' +
+        'Please set VITE_SOCKET_URL to your Render backend URL (e.g., https://your-backend.onrender.com)\n' +
+        'Current value:', socketUrl
+      );
       return null;
     }
     console.log('🔌 Socket URL (production):', socketUrl);
@@ -23,17 +43,15 @@ const getSocketUrl = () => {
   return devUrl;
 };
 
-const SOCKET_URL = getSocketUrl();
-
 let socket = null;
+let currentSocketUrl = null;
 
 export const initSocket = (token) => {
-  if (socket?.connected) {
-    return socket;
-  }
-
+  // Get socket URL at runtime (not cached)
+  const socketUrl = getSocketUrl();
+  
   // Check if socket URL is valid
-  if (!SOCKET_URL) {
+  if (!socketUrl) {
     console.error(
       '❌ Cannot initialize socket: VITE_SOCKET_URL is not set!\n' +
       'Please set VITE_SOCKET_URL in your Vercel environment variables.\n' +
@@ -42,9 +60,22 @@ export const initSocket = (token) => {
     return null;
   }
 
-  console.log('🔌 Initializing socket connection to:', SOCKET_URL);
+  // If socket exists but URL changed, disconnect and recreate
+  if (socket && currentSocketUrl !== socketUrl) {
+    console.log('🔄 Socket URL changed, disconnecting old socket and creating new one');
+    socket.disconnect();
+    socket = null;
+  }
 
-  socket = io(SOCKET_URL, {
+  // If socket is already connected with the correct URL, return it
+  if (socket?.connected && currentSocketUrl === socketUrl) {
+    return socket;
+  }
+
+  console.log('🔌 Initializing socket connection to:', socketUrl);
+  currentSocketUrl = socketUrl;
+
+  socket = io(socketUrl, {
     auth: {
       token,
     },
@@ -55,7 +86,7 @@ export const initSocket = (token) => {
   });
 
   socket.on('connect', () => {
-    console.log('✅ Socket connected:', socket.id);
+    console.log('✅ Socket connected:', socket.id, 'to', socketUrl);
   });
 
   socket.on('disconnect', (reason) => {
@@ -64,25 +95,26 @@ export const initSocket = (token) => {
 
   socket.on('connect_error', (error) => {
     console.error('❌ Socket connection error:', error);
-    console.error('Socket URL was:', SOCKET_URL);
-    if (SOCKET_URL?.includes('localhost')) {
+    console.error('Socket URL was:', socketUrl);
+    if (socketUrl?.includes('localhost') || socketUrl?.includes('127.0.0.1')) {
       console.error(
         '⚠️ You are trying to connect to localhost in production!\n' +
-        'Make sure VITE_SOCKET_URL is set to your Render backend URL in Vercel environment variables.'
+        'Make sure VITE_SOCKET_URL is set to your Render backend URL in Vercel environment variables.\n' +
+        'Current value:', import.meta.env.VITE_SOCKET_URL || 'NOT SET'
       );
     }
   });
 
   socket.on('reconnect_attempt', () => {
-    console.log('🔄 Attempting to reconnect socket...');
+    console.log('🔄 Attempting to reconnect socket to', socketUrl);
   });
 
   socket.on('reconnect', (attemptNumber) => {
-    console.log('✅ Socket reconnected after', attemptNumber, 'attempts');
+    console.log('✅ Socket reconnected after', attemptNumber, 'attempts to', socketUrl);
   });
 
   socket.on('reconnect_failed', () => {
-    console.error('❌ Socket reconnection failed after all attempts');
+    console.error('❌ Socket reconnection failed after all attempts to', socketUrl);
   });
 
   return socket;
@@ -92,6 +124,7 @@ export const disconnectSocket = () => {
   if (socket) {
     socket.disconnect();
     socket = null;
+    currentSocketUrl = null;
   }
 };
 
