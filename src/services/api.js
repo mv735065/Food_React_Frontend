@@ -15,6 +15,13 @@ const getApiBaseUrl = () => {
       // Still return a fallback, but log the error
       return 'http://localhost:5000/api';
     }
+    // Automatically append /api if not present
+    // This allows users to set either https://backend.com or https://backend.com/api
+    if (!prodUrl.endsWith('/api')) {
+      // Remove trailing slash if present, then add /api
+      const cleanUrl = prodUrl.endsWith('/') ? prodUrl.slice(0, -1) : prodUrl;
+      return `${cleanUrl}/api`;
+    }
     return prodUrl;
   }
   // Development: use proxy

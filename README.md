@@ -82,7 +82,9 @@ VITE_SOCKET_URL=http://localhost:5000
 
 **For Production (Render):**
 - Replace `http://localhost:5000` with your actual backend URL from Render
-- Example: `VITE_API_BASE_URL=https://your-backend.onrender.com/api`
+- Example: `VITE_API_BASE_URL=https://your-backend.onrender.com` (or `https://your-backend.onrender.com/api`)
+  - **Note:** If you set it without `/api`, it will be automatically appended
+  - You can set it as either `https://backend.com` or `https://backend.com/api` - both work!
 - Example: `VITE_SOCKET_URL=https://your-backend.onrender.com`
 
 ### 3. Run Development Server
@@ -205,8 +207,11 @@ npm run build
 ### Deploy to Render/Vercel/Netlify
 
 1. Set environment variables in your hosting platform:
-   - `VITE_API_BASE_URL`
-   - `VITE_SOCKET_URL`
+   - `VITE_API_BASE_URL` = `https://your-backend.onrender.com` (or `https://your-backend.onrender.com/api`)
+     - **Note:** `/api` will be automatically appended if not present
+     - Example: If you set `https://backend.com`, it becomes `https://backend.com/api`
+   - `VITE_SOCKET_URL` = `https://your-backend.onrender.com`
+     - Do NOT include `/api` for socket URL
 
 2. Deploy the `dist/` folder (or connect your Git repository)
 
