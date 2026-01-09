@@ -9,7 +9,8 @@ const Cart = () => {
 
   const handleCheckout = () => {
     if (!isAuthenticated) {
-      navigate('/login');
+      // Redirect to login with return URL to checkout
+      navigate('/login?returnUrl=/checkout');
       return;
     }
     navigate('/checkout');

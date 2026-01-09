@@ -85,11 +85,16 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true };
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Login error details:', {
+        error,
+        response: error.response,
+        message: error.message,
+        code: error.code,
+      });
       
       // Handle network errors (CORS, connection refused, etc.)
       if (!error.response) {
-        if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+        if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
           return {
             success: false,
             error: 'Unable to connect to server. Please check if the backend is running on port 5000.',
@@ -104,12 +109,37 @@ export const AuthProvider = ({ children }) => {
       // Handle backend error responses
       // Try multiple possible error message locations
       const errorData = error.response?.data;
-      const errorMessage = errorData?.message || 
-                          errorData?.error || 
-                          (typeof errorData === 'string' ? errorData : null) ||
-                          (error.response?.status === 401 ? 'Invalid email or password.' : null) ||
-                          (error.response?.status === 400 ? 'Invalid credentials. Please check your email and password.' : null) ||
-                          `Login failed. ${error.response?.status ? `Status: ${error.response.status}` : 'Please try again.'}`;
+      const status = error.response?.status;
+      
+      let errorMessage = null;
+      
+      // Try to extract error message from various possible locations
+      if (errorData) {
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.msg) {
+          errorMessage = errorData.msg;
+        }
+      }
+      
+      // Fallback to status-based messages
+      if (!errorMessage) {
+        if (status === 401) {
+          errorMessage = 'Invalid email or password.';
+        } else if (status === 400) {
+          errorMessage = 'Invalid credentials. Please check your email and password.';
+        } else if (status === 404) {
+          errorMessage = 'User not found. Please check your email.';
+        } else if (status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        } else {
+          errorMessage = `Login failed. ${status ? `Status: ${status}` : 'Please try again.'}`;
+        }
+      }
       
       return {
         success: false,

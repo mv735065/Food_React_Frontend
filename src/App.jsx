@@ -57,14 +57,7 @@ function App() {
                   <Route path="/restaurants/:id" element={<RestaurantMenu />} />
 
                   {/* Customer Routes */}
-                  <Route
-                    path="/cart"
-                    element={
-                      <ProtectedRoute>
-                        <Cart />
-                      </ProtectedRoute>
-                    }
-                  />
+                  <Route path="/cart" element={<Cart />} />
                   <Route
                     path="/checkout"
                     element={

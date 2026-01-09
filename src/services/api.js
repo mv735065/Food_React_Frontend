@@ -73,9 +73,16 @@ api.interceptors.response.use(
     
     if (error.response?.status === 401) {
       // Unauthorized - clear token and redirect to login
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // BUT: Don't redirect if this is a login/register request (401 is expected for invalid credentials)
+      const url = error.config?.url || '';
+      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register');
+      
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+      // For auth endpoints, let the error propagate so the component can handle it
     }
     
     // Handle network errors (CORS, connection refused, etc.)
