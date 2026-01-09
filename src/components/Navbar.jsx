@@ -18,8 +18,25 @@ const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <span className="text-2xl font-bold text-primary-600">FoodApp</span>
+          {/* <Link to="/" className="flex items-center space-x-2">
+            <span className="text-2xl font-bold text-primary-600">XOMATOPIA</span>
+          </Link> */}
+          <Link to="/">
+          <div className="relative z-10 p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-full border-4 border-red-600 flex items-center justify-center bg-white shadow-lg">
+                <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#F59E0B" />
+                  <path d="M2 17L12 22L22 17" stroke="#DC2626" strokeWidth="2" />
+                  <path d="M2 12L12 17L22 12" stroke="#DC2626" strokeWidth="2" />
+                </svg>
+              </div>
+              <div className="text-left">
+                <div className="text-red-600 font-bold text-lg tracking-wide">XOMATOPIA</div>
+                <div className="text-gray-500 text-xs">YOUR TAGLINE HERE</div>
+              </div>
+            </div>
+          </div>
           </Link>
 
           {/* Navigation Links */}

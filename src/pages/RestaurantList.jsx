@@ -73,7 +73,7 @@ const RestaurantList = () => {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search restaurants, cuisine, or dishes..."
+                  placeholder="Search restaurants..."
                   className="w-full pl-12 pr-4 py-4 rounded-lg text-gray-900 focus:outline-none focus:ring-4 focus:ring-white/50 shadow-xl transition-all duration-300 text-lg"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}

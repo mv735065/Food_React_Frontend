@@ -33,7 +33,7 @@ const Home = () => {
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-primary-500 to-primary-600 text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-5xl font-bold mb-4">Welcome to FoodApp</h1>
+          <h1 className="text-5xl font-bold mb-4">Welcome to XOMATOPIA</h1>
           <p className="text-xl mb-8">Order delicious food from your favorite restaurants</p>
           <Link to="/restaurants" className="btn-primary bg-white text-primary-600 hover:bg-gray-100 inline-block">
             Browse Restaurants
