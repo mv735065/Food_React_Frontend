@@ -32,26 +32,60 @@ const RestaurantDashboard = () => {
       
       // Handle nested response structure: { status: "success", data: { orders: [...] } }
       const responseData = ordersResponse.data?.data || ordersResponse.data;
-      const orders = Array.isArray(responseData?.orders) 
+      let orders = Array.isArray(responseData?.orders) 
         ? responseData.orders 
         : Array.isArray(responseData) 
           ? responseData 
           : [];
       
+      // Normalize order IDs, status, and totalAmount
+      orders = orders.map(order => {
+        if (!order) return null; // Skip null/undefined orders
+        
+        const orderId = order.id || order._id;
+        if (!orderId) {
+          console.warn('Order missing ID:', order);
+          return null; // Skip orders without IDs
+        }
+        
+        const status = (order.status || '').toLowerCase();
+        const totalAmount = typeof order.totalAmount === 'string' 
+          ? parseFloat(order.totalAmount) 
+          : (typeof order.totalAmount === 'number' ? order.totalAmount : 0);
+        
+        return {
+          ...order,
+          id: String(orderId), // Ensure it's a string
+          _id: String(orderId), // Ensure it's a string
+          status: status,
+          totalAmount: totalAmount,
+        };
+      }).filter(order => order !== null && (order.id || order._id)); // Filter out null orders and orders without IDs
+      
+      console.log('Normalized orders:', orders);
+      
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       const todayOrders = orders.filter(
-        (order) => new Date(order.createdAt) >= today && order.status === 'delivered'
+        (order) => {
+          const orderDate = new Date(order.createdAt);
+          const status = (order.status || '').toLowerCase();
+          return orderDate >= today && status === 'delivered';
+        }
       );
 
       setStats({
         totalOrders: orders.length,
-        pendingOrders: orders.filter((o) => o.status === 'pending' || o.status === 'confirmed').length,
+        pendingOrders: orders.filter((o) => {
+          const status = (o.status || '').toLowerCase();
+          return status === 'pending' || status === 'confirmed' || status === 'accepted';
+        }).length,
         todayRevenue: todayOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
-        activeOrders: orders.filter((o) => 
-          ['preparing', 'ready', 'picked_up'].includes(o.status)
-        ).length,
+        activeOrders: orders.filter((o) => {
+          const status = (o.status || '').toLowerCase();
+          return ['preparing', 'ready', 'picked_up', 'accepted'].includes(status);
+        }).length,
       });
 
       setRecentOrders(orders.slice(0, 5));
@@ -119,28 +153,33 @@ const RestaurantDashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {recentOrders.map((order) => (
-                  <tr key={order._id}>
+                {recentOrders.map((order) => {
+                  const orderId = order.id || order._id;
+                  const orderIdString = orderId ? String(orderId) : null;
+                  return (
+                  <tr key={orderId || Math.random()}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      #{order._id.slice(-6)}
+                      #{orderIdString && orderIdString.length >= 6 ? orderIdString.slice(-6) : (orderIdString || 'N/A')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                        order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        (order.status || '').toLowerCase() === 'delivered' ? 'bg-green-100 text-green-800' :
+                        (order.status || '').toLowerCase() === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        (order.status || '').toLowerCase() === 'cancelled' ? 'bg-red-100 text-red-800' :
                         'bg-blue-100 text-blue-800'
                       }`}>
-                        {order.status}
+                        {(order.status || '').toUpperCase()}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${order.totalAmount?.toFixed(2) || '0.00'}
+                      ${(order.totalAmount || 0).toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

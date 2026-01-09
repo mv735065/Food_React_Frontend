@@ -1,6 +1,33 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const Home = () => {
+  const { isAuthenticated, loading, isRestaurant, isRider, isAdmin } = useAuth();
+
+  // Show loading spinner while checking auth
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  // Redirect non-user roles to their dashboards
+  if (isAuthenticated) {
+    if (isRestaurant) {
+      return <Navigate to="/restaurant/dashboard" replace />;
+    }
+    if (isRider) {
+      return <Navigate to="/rider/dashboard" replace />;
+    }
+    if (isAdmin) {
+      return <Navigate to="/admin/restaurants" replace />;
+    }
+  }
+
+  // Show home page for users (authenticated or not)
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
