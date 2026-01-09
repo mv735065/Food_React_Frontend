@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import NotificationBell from './NotificationBell';
@@ -7,6 +7,28 @@ const Navbar = () => {
   const { user, isAuthenticated, logout, isRestaurant, isRider, isAdmin } = useAuth();
   const { distinctItems } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Helper function to check if a link is active
+  const isActive = (path) => {
+    if (path === '/') {
+      return location.pathname === '/';
+    }
+    // Special handling for restaurant menu pages - they should highlight "Restaurants" link
+    if (path === '/restaurants' && location.pathname.startsWith('/restaurants/')) {
+      return true;
+    }
+    return location.pathname.startsWith(path);
+  };
+
+  // Helper function to get link classes with active state
+  const getLinkClasses = (path) => {
+    const baseClasses = "text-gray-700 hover:text-primary-600 transition-colors";
+    const activeClasses = "text-primary-600 font-semibold border-b-2 border-primary-600";
+    return isActive(path) 
+      ? `${baseClasses} ${activeClasses}` 
+      : baseClasses;
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -43,12 +65,12 @@ const Navbar = () => {
           <div className="flex items-center space-x-6">
             {!isAuthenticated ? (
               <>
-                <Link to="/restaurants" className="text-gray-700 hover:text-primary-600">
+                <Link to="/restaurants" className={getLinkClasses("/restaurants")}>
                   Restaurants
                 </Link>
                 <Link
                   to="/cart"
-                  className="relative text-gray-700 hover:text-primary-600 flex items-center space-x-1"
+                  className={`relative flex items-center space-x-1 ${getLinkClasses("/cart")}`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -59,7 +81,7 @@ const Navbar = () => {
                     </span>
                   )}
                 </Link>
-                <Link to="/login" className="text-gray-700 hover:text-primary-600">
+                <Link to="/login" className={getLinkClasses("/login")}>
                   Login
                 </Link>
                 <Link to="/register" className="btn-primary">
@@ -70,15 +92,15 @@ const Navbar = () => {
               <>
                 {!isRestaurant && !isRider && !isAdmin && (
                   <>
-                    <Link to="/restaurants" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/restaurants" className={getLinkClasses("/restaurants")}>
                       Restaurants
                     </Link>
-                    <Link to="/orders" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/orders" className={getLinkClasses("/orders")}>
                       My Orders
                     </Link>
                     <Link
                       to="/cart"
-                      className="relative text-gray-700 hover:text-primary-600 flex items-center space-x-1"
+                      className={`relative flex items-center space-x-1 ${getLinkClasses("/cart")}`}
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -95,13 +117,13 @@ const Navbar = () => {
 
                 {isRestaurant && (
                   <>
-                    <Link to="/restaurant/dashboard" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/restaurant/dashboard" className={getLinkClasses("/restaurant/dashboard")}>
                       Dashboard
                     </Link>
-                    <Link to="/restaurant/my-restaurants" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/restaurant/my-restaurants" className={getLinkClasses("/restaurant/my-restaurants")}>
                       My Restaurants
                     </Link>
-                    <Link to="/restaurant/all-orders" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/restaurant/all-orders" className={getLinkClasses("/restaurant/all-orders")}>
                       All Orders
                     </Link>
                   </>
@@ -109,13 +131,13 @@ const Navbar = () => {
 
                 {isRider && (
                   <>
-                    <Link to="/rider/dashboard" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/rider/dashboard" className={getLinkClasses("/rider/dashboard")}>
                       Dashboard
                     </Link>
-                    <Link to="/rider/available-orders" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/rider/available-orders" className={getLinkClasses("/rider/available-orders")}>
                       Available Orders
                     </Link>
-                    <Link to="/rider/orders" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/rider/orders" className={getLinkClasses("/rider/orders")}>
                       Assigned Orders
                     </Link>
                   </>
@@ -123,16 +145,16 @@ const Navbar = () => {
 
                 {isAdmin && (
                   <>
-                    <Link to="/admin/restaurants" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/admin/restaurants" className={getLinkClasses("/admin/restaurants")}>
                       Restaurants
                     </Link>
-                    <Link to="/admin/orders" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/admin/orders" className={getLinkClasses("/admin/orders")}>
                       Orders
                     </Link>
-                    <Link to="/admin/riders" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/admin/riders" className={getLinkClasses("/admin/riders")}>
                       Riders
                     </Link>
-                    <Link to="/admin/users" className="text-gray-700 hover:text-primary-600">
+                    <Link to="/admin/users" className={getLinkClasses("/admin/users")}>
                       Users
                     </Link>
                   </>

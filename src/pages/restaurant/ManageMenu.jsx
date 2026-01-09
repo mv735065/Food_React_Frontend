@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Toast from '../../components/Toast';
+import BackButton from '../../components/BackButton';
 
 const ManageMenu = () => {
   const { id: restaurantId } = useParams();
@@ -141,6 +142,8 @@ const ManageMenu = () => {
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
+            <BackButton to="/restaurant/my-restaurants" />
+
 
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Manage Menu</h1>
