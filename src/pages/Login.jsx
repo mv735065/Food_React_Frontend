@@ -20,15 +20,20 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    const result = await login(formData);
+    try {
+      const result = await login(formData);
 
-    if (result.success) {
-      navigate('/');
-    } else {
-      setError(result.error);
+      if (result && result.success) {
+        navigate('/');
+      } else {
+        setError(result?.error || 'Login failed. Please check your credentials and try again.');
+      }
+    } catch (error) {
+      console.error('Login submission error:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (

@@ -102,9 +102,14 @@ export const AuthProvider = ({ children }) => {
       }
       
       // Handle backend error responses
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          `Login failed (${error.response?.status || 'Unknown error'})`;
+      // Try multiple possible error message locations
+      const errorData = error.response?.data;
+      const errorMessage = errorData?.message || 
+                          errorData?.error || 
+                          (typeof errorData === 'string' ? errorData : null) ||
+                          (error.response?.status === 401 ? 'Invalid email or password.' : null) ||
+                          (error.response?.status === 400 ? 'Invalid credentials. Please check your email and password.' : null) ||
+                          `Login failed. ${error.response?.status ? `Status: ${error.response.status}` : 'Please try again.'}`;
       
       return {
         success: false,
