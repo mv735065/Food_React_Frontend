@@ -58,11 +58,18 @@ const ManageMenu = () => {
     }
     
     try {
+      // Validate price
+      const price = parseFloat(formData.price);
+      if (isNaN(price) || price < 0 || price > 999999.99) {
+        setToast({ message: 'Please enter a valid price between 0 and 999999.99', type: 'error' });
+        return;
+      }
+
       // Prepare data for API - convert available to isAvailable if needed
       const menuItemData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        price: parseFloat(formData.price),
+        price: price,
         isAvailable: formData.available,
       };
 
@@ -231,10 +238,18 @@ const ManageMenu = () => {
             <input
               type="number"
               step="0.01"
+              min="0"
+              max="999999.99"
               required
               className="input-field"
               value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value;
+                // Allow empty string or valid number (don't restrict during typing)
+                if (value === '' || value === '-' || value === '.' || !isNaN(value)) {
+                  setFormData({ ...formData, price: value });
+                }
+              }}
             />
           </div>
           <div>

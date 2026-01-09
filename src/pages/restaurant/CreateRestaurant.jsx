@@ -173,10 +173,16 @@ const CreateRestaurant = () => {
                 id="phone"
                 name="phone"
                 type="tel"
+                pattern="[0-9+\-\s()]+"
+                maxLength="20"
                 className="input-field"
-                placeholder="(555) 123-4567"
+                placeholder="+1 234 567 8900 or (555) 123-4567"
                 value={formData.phone}
-                onChange={handleChange}
+                onChange={(e) => {
+                  // Allow only numbers, +, -, spaces, and parentheses
+                  const value = e.target.value.replace(/[^0-9+\-\s()]/g, '');
+                  setFormData({ ...formData, phone: value });
+                }}
               />
             </div>
 
