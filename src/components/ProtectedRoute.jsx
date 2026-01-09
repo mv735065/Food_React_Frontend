@@ -21,7 +21,8 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   const userRole = user?.role?.toUpperCase();
   const normalizedRequiredRole = requiredRole?.toUpperCase();
   
-  if (requiredRole && userRole !== normalizedRequiredRole) {
+  // Admin can access all routes
+  if (requiredRole && userRole !== normalizedRequiredRole && userRole !== 'ADMIN') {
     return <Navigate to="/" replace />;
   }
 

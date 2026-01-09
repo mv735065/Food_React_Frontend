@@ -93,14 +93,17 @@ const Navbar = () => {
 
                 {isAdmin && (
                   <>
-                    <Link to="/admin/users" className="text-gray-700 hover:text-primary-600">
-                      Users
-                    </Link>
                     <Link to="/admin/restaurants" className="text-gray-700 hover:text-primary-600">
                       Restaurants
                     </Link>
                     <Link to="/admin/orders" className="text-gray-700 hover:text-primary-600">
                       Orders
+                    </Link>
+                    <Link to="/admin/riders" className="text-gray-700 hover:text-primary-600">
+                      Riders
+                    </Link>
+                    <Link to="/admin/users" className="text-gray-700 hover:text-primary-600">
+                      Users
                     </Link>
                   </>
                 )}

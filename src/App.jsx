@@ -37,6 +37,7 @@ import AvailableOrders from './pages/rider/AvailableOrders';
 import ManageUsers from './pages/admin/ManageUsers';
 import ManageRestaurants from './pages/admin/ManageRestaurants';
 import ManageOrders from './pages/admin/ManageOrders';
+import ManageRiders from './pages/admin/ManageRiders';
 
 function App() {
   return (
@@ -175,14 +176,6 @@ function App() {
 
                   {/* Admin Routes */}
                   <Route
-                    path="/admin/users"
-                    element={
-                      <ProtectedRoute requiredRole="ADMIN">
-                        <ManageUsers />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
                     path="/admin/restaurants"
                     element={
                       <ProtectedRoute requiredRole="ADMIN">
@@ -195,6 +188,22 @@ function App() {
                     element={
                       <ProtectedRoute requiredRole="ADMIN">
                         <ManageOrders />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/riders"
+                    element={
+                      <ProtectedRoute requiredRole="ADMIN">
+                        <ManageRiders />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/users"
+                    element={
+                      <ProtectedRoute requiredRole="ADMIN">
+                        <ManageUsers />
                       </ProtectedRoute>
                     }
                   />

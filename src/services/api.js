@@ -185,6 +185,8 @@ export const adminAPI = {
   updateRestaurant: (restaurantId, data) => api.put(`/admin/restaurants/${restaurantId}`, data),
   deleteRestaurant: (restaurantId) => api.delete(`/admin/restaurants/${restaurantId}`),
   getAllOrders: () => api.get('/admin/orders'),
+  getRiders: () => api.get('/admin/riders'),
+  deleteRider: (riderId) => api.delete(`/admin/riders/${riderId}`),
 };
 
 export default api;

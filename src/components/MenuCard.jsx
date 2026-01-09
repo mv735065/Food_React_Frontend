@@ -59,7 +59,7 @@ const MenuCard = ({ item, restaurantId }) => {
   const description = item.description || 'No description';
 
   return (
-    <div className="group bg-white rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col h-full transform hover:-translate-y-2">
+    <div className="group bg-white rounded-xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col h-full transform hover:-translate-y-2 max-w-[320px] w-full mx-auto">
       {/* Image Section */}
       <div className="relative h-48 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
         <img
