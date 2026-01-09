@@ -66,10 +66,8 @@ const ManageMenu = () => {
         isAvailable: formData.available,
       };
 
-      // Add optional fields only if they have values
-      if (formData.category.trim()) {
-        menuItemData.category = formData.category.trim();
-      }
+      // Category is required
+      menuItemData.category = formData.category.trim();
       if (formData.image.trim()) {
         menuItemData.imageUrl = formData.image.trim(); // Backend expects imageUrl
       }
@@ -240,13 +238,18 @@ const ManageMenu = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-            <input
-              type="text"
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+            <select
+              required
               className="input-field"
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            />
+            >
+              <option value="">Select Category</option>
+              <option value="veg">Veg</option>
+              <option value="non-veg">Non-Veg</option>
+              <option value="eggitarian">Eggitarian</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
