@@ -5,12 +5,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Toast from '../../components/Toast';
+import BackButton from '../../components/BackButton';
+import { useCachedApi } from '../../hooks/useCachedApi';
+import { useApiCache } from '../../contexts/ApiCacheContext';
 
 const ManageMenu = () => {
   const { id: restaurantId } = useParams();
   const { user } = useAuth();
-  const [menuItems, setMenuItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cache = useApiCache();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({
@@ -23,31 +25,19 @@ const ManageMenu = () => {
   });
   const [toast, setToast] = useState(null);
 
-  useEffect(() => {
-    if (restaurantId) {
-      fetchMenu();
-    }
-  }, [restaurantId]);
+  // Use cached API call
+  const { data: menuData, loading, refetch } = useCachedApi(
+    () => restaurantAPI.getMenuAll(restaurantId),
+    `restaurant/${restaurantId}/menu/all`,
+    {},
+    [restaurantId]
+  );
 
-  const fetchMenu = async () => {
-    if (!restaurantId) return;
-    try {
-      setLoading(true);
-      // Use getMenuAll to get all menu items including unavailable (owner/admin only)
-      const response = await restaurantAPI.getMenuAll(restaurantId);
-      
-      // Handle nested response structure: { status: "success", data: { menuItems: [...] } }
-      const responseData = response.data?.data || response.data;
-      const menuItems = responseData?.menuItems || responseData || [];
-      
-      console.log('Fetched menu items:', menuItems);
-      setMenuItems(Array.isArray(menuItems) ? menuItems : []);
-    } catch (error) {
-      console.error('Failed to fetch menu:', error);
-      setToast({ message: 'Failed to load menu', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
+  // Extract menu items from response
+  const menuItems = menuData?.menuItems || menuData || [];
+
+  const fetchMenu = () => {
+    refetch();
   };
 
   const handleSubmit = async (e) => {
@@ -89,6 +79,8 @@ const ManageMenu = () => {
         await restaurantAPI.createMenuItem(restaurantId, menuItemData);
         setToast({ message: 'Menu item added successfully', type: 'success' });
       }
+      // Invalidate cache to force refresh
+      cache.invalidate(`restaurant/${restaurantId}/menu/all`);
       setIsModalOpen(false);
       setEditingItem(null);
       setFormData({ name: '', description: '', price: '', category: '', image: '', available: true });
@@ -121,6 +113,8 @@ const ManageMenu = () => {
     try {
       // Use new DELETE endpoint for menu items
       await restaurantAPI.deleteMenuItem(restaurantId, itemId);
+      // Invalidate cache to force refresh
+      cache.invalidate(`restaurant/${restaurantId}/menu/all`);
       setToast({ message: 'Menu item deleted successfully', type: 'success' });
       fetchMenu();
     } catch (error) {
@@ -142,6 +136,7 @@ const ManageMenu = () => {
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
 
+      <BackButton to="/restaurant/my-restaurants" />
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Manage Menu</h1>
         <button onClick={() => setIsModalOpen(true)} className="btn-primary">
@@ -243,13 +238,7 @@ const ManageMenu = () => {
               required
               className="input-field"
               value={formData.price}
-              onChange={(e) => {
-                const value = e.target.value;
-                // Allow empty string or valid number (don't restrict during typing)
-                if (value === '' || value === '-' || value === '.' || !isNaN(value)) {
-                  setFormData({ ...formData, price: value });
-                }
-              }}
+              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
             />
           </div>
           <div>

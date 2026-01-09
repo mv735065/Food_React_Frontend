@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { orderAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
+import BackButton from '../components/BackButton';
 
 const Checkout = () => {
   const { items, totalPrice, clearCart, restaurantId } = useCart();
@@ -101,6 +102,7 @@ const Checkout = () => {
         />
       )}
 
+      <BackButton to="/cart" />
       <h1 className="text-3xl font-bold mb-8">Checkout</h1>
 
       {error && (

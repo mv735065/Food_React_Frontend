@@ -1,35 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { restaurantAPI } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
+import BackButton from '../components/BackButton';
+import { useCachedApi } from '../hooks/useCachedApi';
 
 const RestaurantList = () => {
-  const [restaurants, setRestaurants] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Use cached API call
+  const { data: restaurantsData, loading, error: apiError } = useCachedApi(
+    () => restaurantAPI.getAll(),
+    'restaurants/all',
+    {},
+    []
+  );
 
-  useEffect(() => {
-    fetchRestaurants();
-  }, []);
-
-  const fetchRestaurants = async () => {
-    try {
-      setLoading(true);
-      const response = await restaurantAPI.getAll();
-      
-      // Handle nested response structure: { status: "success", data: { restaurants: [...] } }
-      const responseData = response.data?.data || response.data;
-      const restaurants = responseData?.restaurants || responseData || [];
-      
-      setRestaurants(Array.isArray(restaurants) ? restaurants : []);
-    } catch (err) {
-      setError('Failed to load restaurants. Please try again.');
-      console.error('Error fetching restaurants:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Extract restaurants from response
+  const restaurants = restaurantsData?.restaurants || restaurantsData || [];
+  const error = apiError ? 'Failed to load restaurants. Please try again.' : '';
 
   const filteredRestaurants = restaurants.filter((restaurant) =>
     restaurant.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||

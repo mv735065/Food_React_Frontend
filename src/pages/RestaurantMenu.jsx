@@ -5,60 +5,51 @@ import { useCart } from '../contexts/CartContext';
 import MenuCard from '../components/MenuCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Toast from '../components/Toast';
+import BackButton from '../components/BackButton';
+import { useCachedApi } from '../hooks/useCachedApi';
 
 const RestaurantMenu = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addItem, restaurantId: cartRestaurantId } = useCart();
-  const [restaurant, setRestaurant] = useState(null);
-  const [menu, setMenu] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
-  useEffect(() => {
-    fetchRestaurantAndMenu();
-  }, [id]);
+  // Use cached API calls
+  const { data: restaurantData, loading: restaurantLoading } = useCachedApi(
+    () => restaurantAPI.getById(id),
+    `restaurant/${id}`,
+    {},
+    [id]
+  );
 
-  const fetchRestaurantAndMenu = async () => {
-    try {
-      setLoading(true);
-      const [restaurantRes, menuRes] = await Promise.all([
-        restaurantAPI.getById(id),
-        restaurantAPI.getMenu(id),
-      ]);
-      
-      // Handle nested response structure for restaurant
-      const restaurantData = restaurantRes.data?.data || restaurantRes.data;
-      const restaurant = restaurantData?.restaurant || restaurantData;
-      setRestaurant(restaurant);
-      
-      // Handle nested response structure for menu: { status: "success", data: { menuItems: [...] } }
-      const menuResponseData = menuRes.data?.data || menuRes.data;
-      const menuItems = menuResponseData?.menuItems || menuResponseData || [];
-      
-      // Filter only available items and normalize data
-      const availableMenuItems = Array.isArray(menuItems) 
-        ? menuItems
-            .filter(item => item.isAvailable !== false)
-            .map(item => ({
-              ...item,
-              id: item.id || item._id,
-              price: typeof item.price === 'string' ? parseFloat(item.price) : (item.price || 0),
-              image: item.image || item.imageUrl,
-            }))
-        : [];
-      
-      setMenu(availableMenuItems);
-    } catch (err) {
-      setError('Failed to load restaurant menu. Please try again.');
-      console.error('Error fetching restaurant menu:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: menuData, loading: menuLoading } = useCachedApi(
+    () => restaurantAPI.getMenu(id),
+    `restaurant/${id}/menu`,
+    {},
+    [id]
+  );
+
+  const loading = restaurantLoading || menuLoading;
+  
+  // Extract restaurant from response
+  const restaurant = restaurantData?.restaurant || restaurantData;
+  
+  // Extract and normalize menu items
+  const menuItems = menuData?.menuItems || menuData || [];
+  const menu = Array.isArray(menuItems) 
+    ? menuItems
+        .filter(item => item.isAvailable !== false)
+        .map(item => ({
+          ...item,
+          id: item.id || item._id,
+          price: typeof item.price === 'string' ? parseFloat(item.price) : (item.price || 0),
+          image: item.image || item.imageUrl,
+        }))
+    : [];
+
+  const error = (!restaurant && !loading) ? 'Restaurant not found' : '';
 
   const handleAddToCart = (item) => {
     addItem(item, id);
@@ -121,15 +112,7 @@ const RestaurantMenu = () => {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-          <button
-            onClick={() => navigate(-1)}
-            className="mb-4 inline-flex items-center text-white/90 hover:text-white transition-colors font-medium"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Restaurants
-          </button>
+          <BackButton to="/restaurants" className="text-white/90 hover:text-white mb-4" />
           <h1 className="text-4xl md:text-5xl font-bold mb-2">{restaurant.name}</h1>
           <div className="flex items-center space-x-4 flex-wrap">
             <span className="px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-sm font-medium">

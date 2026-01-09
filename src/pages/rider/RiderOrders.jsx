@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Toast from '../../components/Toast';
 import Modal from '../../components/Modal';
+import BackButton from '../../components/BackButton';
 
 const RiderOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -527,6 +528,7 @@ const RiderOrders = () => {
         </Modal>
       )}
 
+      <BackButton to="/rider/dashboard" />
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Assigned Orders</h1>
         <button

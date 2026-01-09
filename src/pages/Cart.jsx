@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import BackButton from '../components/BackButton';
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, totalPrice, clearCart } = useCart();
@@ -32,6 +33,7 @@ const Cart = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <BackButton to="/restaurants" />
       <h1 className="text-3xl font-bold mb-8">Your Cart</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

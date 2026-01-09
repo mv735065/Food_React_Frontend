@@ -5,44 +5,43 @@ import { useAuth } from '../contexts/AuthContext';
 import { getSocket } from '../services/socket';
 import OrderCard from '../components/OrderCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useCachedApi } from '../hooks/useCachedApi';
+import { useApiCache } from '../contexts/ApiCacheContext';
 
 const UserOrders = () => {
   const { user } = useAuth();
+  const cache = useApiCache();
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const fetchOrdersRef = useRef(null);
+
+  // Use cached API call
+  const { data: ordersData, loading, error: apiError, refetch } = useCachedApi(
+    () => orderAPI.getByUser(),
+    'orders/user',
+    {},
+    [user]
+  );
+
+  // Extract orders from response
+  useEffect(() => {
+    if (ordersData) {
+      const ordersList = Array.isArray(ordersData?.orders) 
+        ? ordersData.orders 
+        : Array.isArray(ordersData) 
+          ? ordersData 
+          : [];
+      setOrders(ordersList);
+    }
+  }, [ordersData]);
+
+  const error = apiError ? 'Failed to load orders. Please try again.' : '';
 
   const fetchOrders = useCallback(async () => {
     if (!user) {
-      setError('User not logged in');
       return;
     }
-
-    try {
-      setLoading(true);
-      // Backend automatically filters orders by authenticated user from JWT token
-      const response = await orderAPI.getByUser();
-      
-      console.log('Orders API response:', response.data);
-      
-      // Handle nested response structure: { status: "success", data: { orders: [...] } }
-      const responseData = response.data?.data || response.data;
-      const ordersList = Array.isArray(responseData?.orders) 
-        ? responseData.orders 
-        : Array.isArray(responseData) 
-          ? responseData 
-          : [];
-      
-      console.log('Parsed orders list:', ordersList);
-      setOrders(ordersList);
-    } catch (err) {
-      setError('Failed to load orders. Please try again.');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+    refetch();
+  }, [user, refetch]);
 
   // Update ref whenever fetchOrders changes
   useEffect(() => {
@@ -82,7 +81,8 @@ const UserOrders = () => {
             })
           );
         } else {
-          // If no order ID, refresh all orders
+          // If no order ID, invalidate cache and refresh all orders
+          cache.invalidate('orders/user');
           if (fetchOrdersRef.current) {
             fetchOrdersRef.current();
           }
@@ -91,6 +91,8 @@ const UserOrders = () => {
 
       const handleRiderAssigned = (data) => {
         console.log('Rider assigned event received:', data);
+        // Invalidate cache when rider is assigned
+        cache.invalidate('orders/user');
         if (fetchOrdersRef.current) {
           fetchOrdersRef.current();
         }

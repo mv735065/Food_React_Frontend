@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { restaurantAPI, orderAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import BackButton from '../../components/BackButton';
+import { useCachedApi } from '../../hooks/useCachedApi';
 
 const RestaurantDashboard = () => {
   const { id: restaurantId } = useParams();
@@ -14,87 +16,78 @@ const RestaurantDashboard = () => {
     activeOrders: 0,
   });
   const [recentOrders, setRecentOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  // Use cached API call
+  const { data: ordersData, loading } = useCachedApi(
+    () => restaurantAPI.getOrders(restaurantId),
+    `restaurant/${restaurantId}/orders`,
+    {},
+    [restaurantId]
+  );
 
   useEffect(() => {
-    if (restaurantId) {
-      fetchDashboardData();
-    }
-  }, [restaurantId]);
-
-  const fetchDashboardData = async () => {
-    if (!restaurantId) return;
+    if (!ordersData || !restaurantId) return;
     
-    try {
-      setLoading(true);
-      // Get orders for the specific restaurant using query parameter
-      const ordersResponse = await restaurantAPI.getOrders(restaurantId);
+    // Handle nested response structure: { status: "success", data: { orders: [...] } }
+    const responseData = ordersData?.data || ordersData;
+    let orders = Array.isArray(responseData?.orders) 
+      ? responseData.orders 
+      : Array.isArray(responseData) 
+        ? responseData 
+        : [];
       
-      // Handle nested response structure: { status: "success", data: { orders: [...] } }
-      const responseData = ordersResponse.data?.data || ordersResponse.data;
-      let orders = Array.isArray(responseData?.orders) 
-        ? responseData.orders 
-        : Array.isArray(responseData) 
-          ? responseData 
-          : [];
+    // Normalize order IDs, status, and totalAmount
+    orders = orders.map(order => {
+      if (!order) return null; // Skip null/undefined orders
       
-      // Normalize order IDs, status, and totalAmount
-      orders = orders.map(order => {
-        if (!order) return null; // Skip null/undefined orders
-        
-        const orderId = order.id || order._id;
-        if (!orderId) {
-          console.warn('Order missing ID:', order);
-          return null; // Skip orders without IDs
-        }
-        
+      const orderId = order.id || order._id;
+      if (!orderId) {
+        console.warn('Order missing ID:', order);
+        return null; // Skip orders without IDs
+      }
+      
+      const status = (order.status || '').toLowerCase();
+      const totalAmount = typeof order.totalAmount === 'string' 
+        ? parseFloat(order.totalAmount) 
+        : (typeof order.totalAmount === 'number' ? order.totalAmount : 0);
+      
+      return {
+        ...order,
+        id: String(orderId), // Ensure it's a string
+        _id: String(orderId), // Ensure it's a string
+        status: status,
+        totalAmount: totalAmount,
+      };
+    }).filter(order => order !== null && (order.id || order._id)); // Filter out null orders and orders without IDs
+    
+    console.log('Normalized orders:', orders);
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayOrders = orders.filter(
+      (order) => {
+        const orderDate = new Date(order.createdAt);
         const status = (order.status || '').toLowerCase();
-        const totalAmount = typeof order.totalAmount === 'string' 
-          ? parseFloat(order.totalAmount) 
-          : (typeof order.totalAmount === 'number' ? order.totalAmount : 0);
-        
-        return {
-          ...order,
-          id: String(orderId), // Ensure it's a string
-          _id: String(orderId), // Ensure it's a string
-          status: status,
-          totalAmount: totalAmount,
-        };
-      }).filter(order => order !== null && (order.id || order._id)); // Filter out null orders and orders without IDs
-      
-      console.log('Normalized orders:', orders);
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+        return orderDate >= today && status === 'delivered';
+      }
+    );
 
-      const todayOrders = orders.filter(
-        (order) => {
-          const orderDate = new Date(order.createdAt);
-          const status = (order.status || '').toLowerCase();
-          return orderDate >= today && status === 'delivered';
-        }
-      );
+    setStats({
+      totalOrders: orders.length,
+      pendingOrders: orders.filter((o) => {
+        const status = (o.status || '').toLowerCase();
+        return status === 'pending' || status === 'confirmed' || status === 'accepted';
+      }).length,
+      todayRevenue: todayOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
+      activeOrders: orders.filter((o) => {
+        const status = (o.status || '').toLowerCase();
+        return ['preparing', 'ready', 'picked_up', 'accepted'].includes(status);
+      }).length,
+    });
 
-      setStats({
-        totalOrders: orders.length,
-        pendingOrders: orders.filter((o) => {
-          const status = (o.status || '').toLowerCase();
-          return status === 'pending' || status === 'confirmed' || status === 'accepted';
-        }).length,
-        todayRevenue: todayOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0),
-        activeOrders: orders.filter((o) => {
-          const status = (o.status || '').toLowerCase();
-          return ['preparing', 'ready', 'picked_up', 'accepted'].includes(status);
-        }).length,
-      });
-
-      setRecentOrders(orders.slice(0, 5));
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    setRecentOrders(orders.slice(0, 5));
+  }, [ordersData, restaurantId]);
 
   if (loading) {
     return (
@@ -106,6 +99,7 @@ const RestaurantDashboard = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <BackButton to="/restaurant/my-restaurants" />
       <h1 className="text-3xl font-bold mb-8">Restaurant Dashboard</h1>
 
       {/* Stats Cards */}

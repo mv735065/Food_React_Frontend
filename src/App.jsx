@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { ApiCacheProvider } from './contexts/ApiCacheContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -44,8 +45,9 @@ function App() {
     <Router>
       <AuthProvider>
         <CartProvider>
-          <NotificationProvider>
-            <div className="flex flex-col">
+          <ApiCacheProvider>
+            <NotificationProvider>
+              <div className="flex flex-col">
               <Navbar />
               <main className="w-full min-h-screen">
                 <Routes>
@@ -207,7 +209,8 @@ function App() {
               </main>
               <Footer />
             </div>
-          </NotificationProvider>
+            </NotificationProvider>
+          </ApiCacheProvider>
         </CartProvider>
       </AuthProvider>
     </Router>

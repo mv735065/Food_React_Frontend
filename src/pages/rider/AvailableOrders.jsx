@@ -4,6 +4,7 @@ import { orderAPI } from '../../services/api';
 import { getSocket } from '../../services/socket';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Toast from '../../components/Toast';
+import BackButton from '../../components/BackButton';
 
 const AvailableOrders = () => {
   const { user } = useAuth();
@@ -159,6 +160,7 @@ const AvailableOrders = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
+        <BackButton to="/rider/dashboard" />
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Available Orders</h1>
         <p className="text-gray-600">Orders ready for pickup - Accept to start delivery</p>
       </div>

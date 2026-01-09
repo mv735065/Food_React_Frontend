@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getSocket } from '../../services/socket';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Toast from '../../components/Toast';
+import BackButton from '../../components/BackButton';
 
 const RestaurantOrders = () => {
   const { id: restaurantId } = useParams();
@@ -127,6 +128,7 @@ const RestaurantOrders = () => {
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
 
+      <BackButton to={`/restaurants/${restaurantId}/dashboard`} />
       <h1 className="text-3xl font-bold mb-8">Restaurant Orders</h1>
 
       {orders.length === 0 ? (

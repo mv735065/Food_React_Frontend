@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { restaurantAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import Toast from '../../components/Toast';
+import BackButton from '../../components/BackButton';
 
 const CreateRestaurant = () => {
   const navigate = useNavigate();
@@ -95,6 +96,7 @@ const CreateRestaurant = () => {
       )}
 
       <div className="max-w-2xl mx-auto">
+        <BackButton to="/restaurant/my-restaurants" />
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Create New Restaurant</h1>
           <p className="text-gray-600">Fill in the details to add your restaurant to the platform</p>
